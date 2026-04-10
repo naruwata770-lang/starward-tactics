@@ -1,13 +1,22 @@
 /**
  * Board の Context オブジェクト定義と購読 hooks。
  *
- * Context を 4 つに分割しているのは、ドラッグ中の連続更新で
- * 全 Consumer が再 render されるのを避けるため:
+ * Context を 4 つに分割している意図:
+ * 各 Context の value 参照が変化したときだけ、その Context を購読している
+ * コンポーネントが再 render される。よって用途別に Context を分けることで
+ * 「present の値しか使わないコンポーネント」を「past/future の変更」で
+ * 再 render させずに済む。
+ *
  * - BoardStateContext: history 全体（Undo/Redo ボタンなど past/future が必要なもの）
  * - BoardPresentContext: present だけ（盤面表示用）。past/future が変わっても
- *   present の参照が変わらなければ再 render されない
- * - BoardDispatchContext: dispatch だけ欲しいものは state 変更で再 render されない
+ *   present の参照が変わらなければ購読側は再 render されない
+ * - BoardDispatchContext: dispatch だけ。dispatch は安定参照なので購読側は
+ *   ほぼ再 render されない
  * - UIContext: selectedUnit など URL に含めたくない UI 状態
+ *
+ * 注: BoardProvider 関数自体は state 変更のたびに再実行される。
+ * children prop の参照が安定であれば、React の reconciliation により
+ * children の subtree は再評価されない（Context 値が変わった購読者だけが再 render される）。
  *
  * Provider 本体は BoardProvider.tsx を参照。
  */

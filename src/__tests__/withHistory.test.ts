@@ -296,6 +296,29 @@ describe('withHistory', () => {
       expect(state.past).toHaveLength(DEFAULT_HISTORY_LIMIT)
       expect(state.present.units.self.x).toBe(DEFAULT_HISTORY_LIMIT + 5)
     })
+
+    it('limit: 0 keeps no history (regression: slice(-0) bug)', () => {
+      const reducer = withHistory(boardReducer, { limit: 0 })
+      const next = reducer(createInitialHistory(INITIAL_BOARD_STATE), {
+        type: 'COMMIT_MOVE',
+        unitId: 'self',
+        x: 100,
+        y: 100,
+      })
+      expect(next.past).toHaveLength(0)
+      expect(next.present.units.self.x).toBe(100)
+    })
+
+    it('negative limit is treated as 0', () => {
+      const reducer = withHistory(boardReducer, { limit: -5 })
+      const next = reducer(createInitialHistory(INITIAL_BOARD_STATE), {
+        type: 'COMMIT_MOVE',
+        unitId: 'self',
+        x: 100,
+        y: 100,
+      })
+      expect(next.past).toHaveLength(0)
+    })
   })
 
   describe('reference identity', () => {

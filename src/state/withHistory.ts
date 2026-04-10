@@ -51,7 +51,8 @@ export function withHistory(
   reducer: (state: BoardState, action: BoardAction) => BoardState,
   options: WithHistoryOptions = {},
 ) {
-  const limit = options.limit ?? DEFAULT_HISTORY_LIMIT
+  // 負値や 0 を渡されたときに slice(-0) で全件残ってしまうのを防ぐ
+  const limit = Math.max(0, options.limit ?? DEFAULT_HISTORY_LIMIT)
 
   return function historyReducer(
     state: HistoryState<BoardState>,
@@ -60,6 +61,10 @@ export function withHistory(
     if (action.type === 'UNDO') {
       // ドラッグ中の Undo はドラッグをキャンセルしてスナップに戻る（past は触らない）
       if (state.uncommittedFrom !== null) {
+        // すでに開始位置と同じ参照を見ている場合はオブジェクト再生成しない
+        if (state.present === state.uncommittedFrom) {
+          return { ...state, uncommittedFrom: null }
+        }
         return {
           ...state,
           present: state.uncommittedFrom,
@@ -119,6 +124,9 @@ export function withHistory(
       }
 
       // mid-drag commit: 開始位置と終了位置を比較して history 記録要否を判定
+      // NOTE: 「1 ドラッグ = 1 ユニットしか動かさない」前提。マルチタッチで複数ユニットを
+      // 同時にドラッグするような将来拡張をする場合は、この等価判定では足りない
+      // (他のユニットの変更が silent に捨てられる) ので拡張要。
       const startUnit = state.uncommittedFrom.units[action.unitId]
       const newUnit = newPresent.units[action.unitId]
       if (startUnit.x === newUnit.x && startUnit.y === newUnit.y) {
@@ -169,5 +177,6 @@ function appendToPast(
 }
 
 function trimHistory<T>(past: T[], limit: number): T[] {
+  if (limit <= 0) return []
   return past.length > limit ? past.slice(-limit) : past
 }
