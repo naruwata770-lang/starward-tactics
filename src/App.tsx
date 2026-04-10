@@ -1,15 +1,11 @@
 import { Layout } from './components/Layout'
 import { Board } from './components/board/Board'
+import { InspectorPanel } from './components/inspector/InspectorPanel'
 import { BoardProvider } from './state/BoardProvider'
 
-// TODO(Phase 4): Toolbar / InspectorPanel の本実装に置き換える。
-// Phase 3 ではまだ中身を作らないので、ここで仮のプレースホルダを定義している。
+// TODO(Phase 5): Toolbar の本実装 (Undo/Redo, Reset, 共有 URL など) に置き換える。
 function ToolbarPlaceholder() {
   return <h1 className="text-lg font-bold">星の翼 戦術ボード</h1>
-}
-
-function InspectorPlaceholder() {
-  return <p className="text-sm text-slate-400">ユニットを選択してください</p>
 }
 
 function App() {
@@ -18,7 +14,7 @@ function App() {
       <Layout
         toolbar={<ToolbarPlaceholder />}
         board={<Board />}
-        inspector={<InspectorPlaceholder />}
+        inspector={<InspectorPanel />}
       />
     </BoardProvider>
   )

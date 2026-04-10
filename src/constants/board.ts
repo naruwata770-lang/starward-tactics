@@ -37,6 +37,60 @@ export const UNIT_LABEL_HEIGHT = 18
 /** 円の下端からラベル上端までの隙間 */
 export const UNIT_LABEL_GAP = 6
 
+/** ラベル (ピル) のテキスト font-size */
+export const UNIT_LABEL_FONT_SIZE = 12
+
+/**
+ * 円の中央に表示するコスト数値の font-size。
+ * 参考元 (kuro7983 EXVS2IB) と同じく「最も大事な数字を中央に大きく」の方針。
+ */
+export const UNIT_COST_FONT_SIZE = 20
+
+/** SB ゲージ 1 セグメントあたりの幅 */
+export const UNIT_SB_BAR_WIDTH = 12
+
+/** SB ゲージ 1 セグメントあたりの高さ */
+export const UNIT_SB_BAR_HEIGHT = 5
+
+/** SB ゲージ 2 セグメント間の隙間 */
+export const UNIT_SB_BAR_GAP = 2
+
+/**
+ * 円中心から SB ゲージ上端までの距離。
+ * コスト文字 (font 20、円中心配置) の下に少し離して置く。
+ */
+export const UNIT_SB_Y_OFFSET = 13
+
+/**
+ * コスト文字の y ずらし幅。unit.y (円中心) からこの分だけ上にずらす。
+ * 下に SB ゲージを置くスペースを確保するための微調整。
+ */
+export const UNIT_COST_Y_NUDGE = 2
+
+/** コスト文字の色 (円中央、太字白) */
+export const UNIT_COST_TEXT_COLOR = '#f8fafc' // slate-50
+
+/** 名前ラベル (ピル) の背景色。濃紺で SB バーの空状態と揃える。 */
+export const UNIT_LABEL_BG_COLOR = '#0f172a' // slate-900
+
+/** 名前ラベル (ピル) のテキスト色 */
+export const UNIT_LABEL_TEXT_COLOR = '#e2e8f0' // slate-200
+
+/** 円の stroke 色 (濃紺、ピル背景と同色) */
+export const UNIT_STROKE_COLOR = '#0f172a' // slate-900
+
+/**
+ * SB ゲージ点灯時の色。amber-400。
+ */
+export const UNIT_SB_BAR_FILLED_COLOR = '#fbbf24'
+
+/**
+ * SB ゲージ空状態の色。
+ * ピル背景と同じ濃紺にすることで、円の明色 (sky/blue/red/rose) とのコントラストを
+ * 強くする (薄い slate だと色付き円の上で見えにくい)。
+ */
+export const UNIT_SB_BAR_EMPTY_COLOR = '#0f172a' // slate-900
+
 /**
  * SVG の stroke は path の中心線から内外に半分ずつ広がる。
  * 安全範囲を計算する際は描画寸法 (半径や高さ) に加えてこの分も内側に
