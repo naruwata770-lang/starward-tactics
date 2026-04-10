@@ -3,7 +3,13 @@
  *
  * 値はラジオ的なボタングループとして表現する (`role="radiogroup"`)。
  * 選択中ボタンは背景色を反転して強調。
+ *
+ * memo 化: 親 InspectorPanel は board 全体を購読しているため MOVE_UNIT 等で
+ * 毎フレーム再 render される。props (unitId / current の数値) のシャロー比較で
+ * 変化がなければ bailout する。
  */
+
+import { memo } from 'react'
 
 import { COSTS } from '../../constants/game'
 import { useBoardDispatch } from '../../state/BoardContext'
@@ -14,7 +20,10 @@ export interface CostSelectorProps {
   current: Cost
 }
 
-export function CostSelector({ unitId, current }: CostSelectorProps) {
+export const CostSelector = memo(function CostSelector({
+  unitId,
+  current,
+}: CostSelectorProps) {
   const dispatch = useBoardDispatch()
 
   return (
@@ -40,4 +49,4 @@ export function CostSelector({ unitId, current }: CostSelectorProps) {
       })}
     </div>
   )
-}
+})

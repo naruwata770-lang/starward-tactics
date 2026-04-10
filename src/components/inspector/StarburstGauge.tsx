@@ -2,7 +2,11 @@
  * StarburstGauge: 覚醒ゲージ (なし / 半覚 / 全覚) を切り替える。
  *
  * UnitToken 側の SB バーと連動する。
+ *
+ * memo 化: 親 InspectorPanel の再 render に引きずられないよう、props のシャロー比較で bailout する。
  */
+
+import { memo } from 'react'
 
 import { STARBURST_LABELS, STARBURST_LEVELS } from '../../constants/game'
 import { useBoardDispatch } from '../../state/BoardContext'
@@ -13,7 +17,10 @@ export interface StarburstGaugeProps {
   current: StarburstLevel
 }
 
-export function StarburstGauge({ unitId, current }: StarburstGaugeProps) {
+export const StarburstGauge = memo(function StarburstGauge({
+  unitId,
+  current,
+}: StarburstGaugeProps) {
   const dispatch = useBoardDispatch()
 
   return (
@@ -41,4 +48,4 @@ export function StarburstGauge({ unitId, current }: StarburstGaugeProps) {
       })}
     </div>
   )
-}
+})

@@ -35,7 +35,11 @@ import {
   UNIT_SB_Y_OFFSET,
   UNIT_STROKE_WIDTH,
 } from '../../constants/board'
-import { CORE_TYPES, UNIT_COLORS, UNIT_LABELS } from '../../constants/game'
+import {
+  CORE_TYPE_BY_ID,
+  UNIT_COLORS,
+  UNIT_LABELS,
+} from '../../constants/game'
 import type { StarburstLevel, Unit } from '../../types/board'
 
 // 円中心からラベル上端までの距離。constants の UNIT_RADIUS と UNIT_LABEL_GAP の和。
@@ -64,11 +68,6 @@ function sbFillCount(level: StarburstLevel): number {
   }
 }
 
-// コア種別 → 色 のルックアップ。CORE_TYPES は配列なので id をキーに引く。
-const CORE_TYPE_COLOR: Record<Unit['coreType'], string> = Object.fromEntries(
-  CORE_TYPES.map(({ id, color }) => [id, color]),
-) as Record<Unit['coreType'], string>
-
 export interface UnitTokenProps {
   unit: Unit
 }
@@ -76,7 +75,8 @@ export interface UnitTokenProps {
 export function UnitToken({ unit }: UnitTokenProps) {
   const color = UNIT_COLORS[unit.id]
   const label = UNIT_LABELS[unit.id]
-  const coreColor = CORE_TYPE_COLOR[unit.coreType]
+  // CORE_TYPE_BY_ID は constants/game.ts で satisfies により全キー網羅が型で保証されている
+  const coreColor = CORE_TYPE_BY_ID[unit.coreType].color
   const sbCount = sbFillCount(unit.starburst)
 
   // SB ゲージ 2 バーの x 配置 (円中央に対称)

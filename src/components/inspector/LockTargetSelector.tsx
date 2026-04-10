@@ -5,7 +5,11 @@
  * 弾いているので、UI 側でも自分は最初から選択肢に含めない。
  *
  * Phase 4 では state を持つだけ。Phase 8 (ロック線) で実際の線が引かれる。
+ *
+ * memo 化: 親 InspectorPanel の再 render に引きずられないよう、props のシャロー比較で bailout する。
  */
+
+import { memo, useMemo } from 'react'
 
 import { UNIT_COLORS, UNIT_IDS, UNIT_LABELS } from '../../constants/game'
 import { useBoardDispatch } from '../../state/BoardContext'
@@ -16,19 +20,21 @@ export interface LockTargetSelectorProps {
   current: UnitId | null
 }
 
-export function LockTargetSelector({
+export const LockTargetSelector = memo(function LockTargetSelector({
   unitId,
   current,
 }: LockTargetSelectorProps) {
   const dispatch = useBoardDispatch()
 
-  // 自分以外の 3 機を選択肢に
-  const candidates = UNIT_IDS.filter((id) => id !== unitId)
+  // 自分以外の 3 機を選択肢に。unitId が変わらない限り配列の参照も安定するよう useMemo。
+  const candidates = useMemo(
+    () => UNIT_IDS.filter((id) => id !== unitId),
+    [unitId],
+  )
 
   return (
     <div role="radiogroup" aria-label="ロック対象" className="flex gap-2">
       <button
-        key="none"
         type="button"
         role="radio"
         aria-checked={current === null}
@@ -54,7 +60,9 @@ export function LockTargetSelector({
             onClick={() =>
               dispatch({ type: 'SET_LOCK_TARGET', unitId, target: id })
             }
-            className={`flex-1 rounded-md px-2 py-2 text-xs font-bold text-slate-900 transition ${
+            // text-black を使う理由: ally (#2563eb) は slate-900 だと AA 4.5:1 を割る。
+            // 全ユニットカラーで 4.6+ をクリアするため純粋黒に統一 (UnitSelector と同じ方針)。
+            className={`flex-1 rounded-md px-2 py-2 text-xs font-bold text-black transition ${
               isSelected
                 ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-950'
                 : 'opacity-70 hover:opacity-100'
@@ -67,4 +75,4 @@ export function LockTargetSelector({
       })}
     </div>
   )
-}
+})

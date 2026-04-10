@@ -46,14 +46,31 @@ export interface CoreTypeMeta {
   color: string
 }
 
-export const CORE_TYPES: readonly CoreTypeMeta[] = [
-  { id: 'F', label: '格闘', color: '#ef4444' }, // 赤
-  { id: 'S', label: '射撃', color: '#3b82f6' }, // 青
-  { id: 'M', label: '機動', color: '#eab308' }, // 黄
-  { id: 'D', label: '防御', color: '#22c55e' }, // 緑
-  { id: 'B', label: 'バランス', color: '#e2e8f0' }, // 白
-  { id: 'C', label: 'カバーリング', color: '#a855f7' }, // 紫
-]
+/**
+ * コア種別 → メタ情報のマップ (id 引き用)。
+ *
+ * このオブジェクトが「コア種別の唯一の source of truth」。
+ * `satisfies Record<CoreType, CoreTypeMeta>` によって、CoreType に新しい
+ * 値を追加したとき compile error でキー漏れを検出できる。
+ */
+export const CORE_TYPE_BY_ID = {
+  F: { id: 'F', label: '格闘', color: '#ef4444' }, // 赤
+  S: { id: 'S', label: '射撃', color: '#3b82f6' }, // 青
+  M: { id: 'M', label: '機動', color: '#eab308' }, // 黄
+  D: { id: 'D', label: '防御', color: '#22c55e' }, // 緑
+  B: { id: 'B', label: 'バランス', color: '#e2e8f0' }, // 白
+  C: { id: 'C', label: 'カバーリング', color: '#a855f7' }, // 紫
+} as const satisfies Record<CoreType, CoreTypeMeta>
+
+/**
+ * 表示順を保持したコア種別リスト (UI のボタン並び順)。
+ * CORE_TYPE_BY_ID からこの順で引いた派生配列。
+ */
+const CORE_TYPE_ORDER: readonly CoreType[] = ['F', 'S', 'M', 'D', 'B', 'C']
+
+export const CORE_TYPES: readonly CoreTypeMeta[] = CORE_TYPE_ORDER.map(
+  (id) => CORE_TYPE_BY_ID[id],
+)
 
 /**
  * 初期配置: 味方 (self, ally) は下、敵 (enemy1, enemy2) は上のダイヤモンド配置。
