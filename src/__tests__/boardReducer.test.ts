@@ -90,6 +90,17 @@ describe('boardReducer', () => {
       // 不変条件テスト: UNIT_COORD_*_{MIN,MAX} の境界値で実際に円とラベルを
       // 描画したとき、stroke を含めた視覚 bbox が [0, VIEW_BOX_SIZE] に収まること
       // を計算で検証する。constants/board.ts の式を変更したらここで気づける。
+      //
+      // 検証の対象: 現行の描画で viewBox 端を支配する 4 辺のみ。
+      // - x 方向: 円の半径 (30) + stroke 半幅 (1) = 31 が、ラベル幅の半分
+      //   (UNIT_LABEL_WIDTH / 2 + UNIT_LABEL_STROKE_WIDTH / 2 = 28.5) より大きい
+      //   ため、x の左右は円が支配する。よってラベル左右の assertion は省略。
+      // - y 方向: 上は円が、下はラベルが支配する。
+      //
+      // 将来 UNIT_LABEL_WIDTH を UNIT_RADIUS * 2 + UNIT_STROKE_WIDTH より大きく
+      // 変更するとラベル左右が viewBox 端を支配するようになるので、その時は
+      // 下記に「ラベル左端 / 右端」の assertion を追加し、UNIT_COORD_X_MIN/MAX
+      // の式もラベル幅を加味するよう更新すること。
       const strokeHalf = UNIT_STROKE_WIDTH / 2
       const labelStrokeHalf = UNIT_LABEL_STROKE_WIDTH / 2
 
