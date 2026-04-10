@@ -6,18 +6,13 @@
  * を満たすため、コンポーネントのみを export している。
  */
 
-import {
-  useCallback,
-  useMemo,
-  useReducer,
-  useState,
-  type ReactNode,
-} from 'react'
+import { useMemo, useReducer, useState, type ReactNode } from 'react'
 
 import { INITIAL_BOARD_STATE } from '../constants/game'
 import type { BoardState, UnitId } from '../types/board'
 import {
   BoardDispatchContext,
+  BoardPresentContext,
   BoardStateContext,
   UIContext,
   type UIContextValue,
@@ -40,22 +35,21 @@ export function BoardProvider({ children, initialState }: BoardProviderProps) {
     createInitialHistory,
   )
 
+  // useState の setter は安定参照なので useCallback でラップする必要はない
   const [selectedUnit, setSelectedUnit] = useState<UnitId | null>(null)
 
-  const setSelectedUnitStable = useCallback((unit: UnitId | null) => {
-    setSelectedUnit(unit)
-  }, [])
-
   const uiValue = useMemo<UIContextValue>(
-    () => ({ selectedUnit, setSelectedUnit: setSelectedUnitStable }),
-    [selectedUnit, setSelectedUnitStable],
+    () => ({ selectedUnit, setSelectedUnit }),
+    [selectedUnit],
   )
 
   return (
     <BoardStateContext.Provider value={historyState}>
-      <BoardDispatchContext.Provider value={dispatch}>
-        <UIContext.Provider value={uiValue}>{children}</UIContext.Provider>
-      </BoardDispatchContext.Provider>
+      <BoardPresentContext.Provider value={historyState.present}>
+        <BoardDispatchContext.Provider value={dispatch}>
+          <UIContext.Provider value={uiValue}>{children}</UIContext.Provider>
+        </BoardDispatchContext.Provider>
+      </BoardPresentContext.Provider>
     </BoardStateContext.Provider>
   )
 }

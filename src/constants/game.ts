@@ -14,7 +14,7 @@ import type {
   UnitId,
 } from '../types/board'
 
-export const UNIT_IDS: readonly UnitId[] = ['self', 'ally', 'enemy1', 'enemy2'] as const
+export const UNIT_IDS: readonly UnitId[] = ['self', 'ally', 'enemy1', 'enemy2']
 
 export const UNIT_LABELS: Record<UnitId, string> = {
   self: '自機',
@@ -30,13 +30,9 @@ export const UNIT_COLORS: Record<UnitId, string> = {
   enemy2: '#f43f5e', // rose-500
 }
 
-export const COSTS: readonly Cost[] = [1.5, 2, 2.5, 3] as const
+export const COSTS: readonly Cost[] = [1.5, 2, 2.5, 3]
 
-export const STARBURST_LEVELS: readonly StarburstLevel[] = [
-  'none',
-  'half',
-  'full',
-] as const
+export const STARBURST_LEVELS: readonly StarburstLevel[] = ['none', 'half', 'full']
 
 export const STARBURST_LABELS: Record<StarburstLevel, string> = {
   none: 'なし',
@@ -57,7 +53,7 @@ export const CORE_TYPES: readonly CoreTypeMeta[] = [
   { id: 'D', label: '防御', color: '#22c55e' }, // 緑
   { id: 'B', label: 'バランス', color: '#e2e8f0' }, // 白
   { id: 'C', label: 'カバーリング', color: '#a855f7' }, // 紫
-] as const
+]
 
 /**
  * 初期配置: 味方 (self, ally) は下、敵 (enemy1, enemy2) は上のダイヤモンド配置。

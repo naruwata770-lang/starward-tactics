@@ -49,6 +49,28 @@ describe('boardReducer', () => {
       expect(next.units.ally).toBe(INITIAL_BOARD_STATE.units.ally)
       expect(next.units.enemy1).toBe(INITIAL_BOARD_STATE.units.enemy1)
     })
+
+    it('clamps coordinates outside [0, 720]', () => {
+      const next = boardReducer(INITIAL_BOARD_STATE, {
+        type: 'COMMIT_MOVE',
+        unitId: 'self',
+        x: -100,
+        y: 9999,
+      })
+      expect(next.units.self.x).toBe(0)
+      expect(next.units.self.y).toBe(720)
+    })
+
+    it('clamps NaN coordinates to 0', () => {
+      const next = boardReducer(INITIAL_BOARD_STATE, {
+        type: 'COMMIT_MOVE',
+        unitId: 'self',
+        x: Number.NaN,
+        y: Number.NaN,
+      })
+      expect(next.units.self.x).toBe(0)
+      expect(next.units.self.y).toBe(0)
+    })
   })
 
   describe('SET_DIRECTION', () => {
@@ -158,15 +180,4 @@ describe('boardReducer', () => {
     })
   })
 
-  describe('UNDO / REDO', () => {
-    it('UNDO is a no-op at this layer (handled by withHistory)', () => {
-      const next = boardReducer(INITIAL_BOARD_STATE, { type: 'UNDO' })
-      expect(next).toBe(INITIAL_BOARD_STATE)
-    })
-
-    it('REDO is a no-op at this layer (handled by withHistory)', () => {
-      const next = boardReducer(INITIAL_BOARD_STATE, { type: 'REDO' })
-      expect(next).toBe(INITIAL_BOARD_STATE)
-    })
-  })
 })

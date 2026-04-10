@@ -1,10 +1,12 @@
 /**
  * Board の Context オブジェクト定義と購読 hooks。
  *
- * Context を 3 つに分割しているのは、ドラッグ中の連続更新で
+ * Context を 4 つに分割しているのは、ドラッグ中の連続更新で
  * 全 Consumer が再 render されるのを避けるため:
- * - BoardStateContext: state の購読が必要なものだけ
- * - BoardDispatchContext: dispatch だけ欲しいものは再 render されない
+ * - BoardStateContext: history 全体（Undo/Redo ボタンなど past/future が必要なもの）
+ * - BoardPresentContext: present だけ（盤面表示用）。past/future が変わっても
+ *   present の参照が変わらなければ再 render されない
+ * - BoardDispatchContext: dispatch だけ欲しいものは state 変更で再 render されない
  * - UIContext: selectedUnit など URL に含めたくない UI 状態
  *
  * Provider 本体は BoardProvider.tsx を参照。
@@ -19,6 +21,8 @@ export const BoardStateContext = createContext<HistoryState<BoardState> | null>(
   null,
 )
 
+export const BoardPresentContext = createContext<BoardState | null>(null)
+
 export const BoardDispatchContext = createContext<Dispatch<BoardAction> | null>(
   null,
 )
@@ -32,16 +36,21 @@ export const UIContext = createContext<UIContextValue | null>(null)
 
 // ---- hooks ----
 
-/** history 込みの state を取得（Undo/Redo ボタンの有効状態判定に使う） */
+/** history 込みの state を取得（Undo/Redo ボタンの有効状態判定など） */
 export function useBoardHistory(): HistoryState<BoardState> {
   const ctx = useContext(BoardStateContext)
   if (!ctx) throw new Error('useBoardHistory must be used within BoardProvider')
   return ctx
 }
 
-/** 現在のボード状態（history.present）を取得 */
+/**
+ * 現在のボード状態 (history.present) を取得。
+ * past/future の変化では再 render されない（present の参照が変わったときだけ）。
+ */
 export function useBoard(): BoardState {
-  return useBoardHistory().present
+  const ctx = useContext(BoardPresentContext)
+  if (!ctx) throw new Error('useBoard must be used within BoardProvider')
+  return ctx
 }
 
 /** Undo/Redo の可否 */
@@ -60,9 +69,9 @@ export function useBoardDispatch(): Dispatch<BoardAction> {
   return ctx
 }
 
-/** 選択中ユニット (UI 状態) */
-export function useSelectedUnit(): UIContextValue {
+/** 選択中ユニットと setter (UI 状態) */
+export function useSelection(): UIContextValue {
   const ctx = useContext(UIContext)
-  if (!ctx) throw new Error('useSelectedUnit must be used within BoardProvider')
+  if (!ctx) throw new Error('useSelection must be used within BoardProvider')
   return ctx
 }
