@@ -35,8 +35,11 @@ export function BoardProvider({ children, initialState }: BoardProviderProps) {
     createInitialHistory,
   )
 
-  // useState の setter は安定参照なので useCallback でラップする必要はない
-  const [selectedUnit, setSelectedUnit] = useState<UnitId | null>(null)
+  // useState の setter は安定参照なので useCallback でラップする必要はない。
+  // 初期選択は 'self' (自機) にして、初回ロードからインスペクターが編集状態に
+  // なるようにする。null も型上は許容しているが、Phase 5+ で「選択解除」が
+  // 必要になったら実装する想定。
+  const [selectedUnit, setSelectedUnit] = useState<UnitId | null>('self')
 
   const uiValue = useMemo<UIContextValue>(
     () => ({ selectedUnit, setSelectedUnit }),
