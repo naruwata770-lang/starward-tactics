@@ -18,6 +18,7 @@
 import {
   UNIT_LABEL_GAP,
   UNIT_LABEL_HEIGHT,
+  UNIT_LABEL_STROKE_WIDTH,
   UNIT_LABEL_WIDTH,
   UNIT_RADIUS,
   UNIT_STROKE_WIDTH,
@@ -63,7 +64,7 @@ export function UnitToken({ unit }: UnitTokenProps) {
         ry={LABEL_CORNER_RADIUS}
         fill="#0f172a"
         stroke={color}
-        strokeWidth={1}
+        strokeWidth={UNIT_LABEL_STROKE_WIDTH}
       />
       <text
         x={unit.x}

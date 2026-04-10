@@ -7,6 +7,11 @@
  * 重要: この <svg> 内では Tailwind class を使わず、すべて属性で色を指定する。
  * Phase 9 の PNG 出力で外部 CSS が解決されない問題を避けるため。
  *
+ * アクセシビリティ: <svg> ルートには role="img" + aria-label を指定し、
+ * 支援技術には「戦術ボード」として認識させる。<title> をルートに置くと
+ * 盤面全体の hover でツールチップが出てしまうので、盤面ルートには付けず、
+ * 個々のユニット (UnitToken の <g><title> ... </title>) に持たせている。
+ *
  * z-order: UNIT_IDS の並び順がそのまま描画順 (後勝ち) になる。
  * `self → ally → enemy1 → enemy2` の順なので enemy2 が最前面に描かれる。
  * Phase 4 以降で「選択中ユニットを最前面にしたい」等の要件が出た場合は
@@ -32,7 +37,6 @@ export function Board() {
       role="img"
       aria-label="戦術ボード"
     >
-      <title>戦術ボード</title>
       <SvgDefs />
       <GridBackground />
       {UNIT_IDS.map((id) => (

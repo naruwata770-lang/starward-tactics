@@ -1,9 +1,16 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  UNIT_COORD_X_MAX,
   UNIT_COORD_X_MIN,
   UNIT_COORD_Y_MAX,
   UNIT_COORD_Y_MIN,
+  UNIT_LABEL_GAP,
+  UNIT_LABEL_HEIGHT,
+  UNIT_LABEL_STROKE_WIDTH,
+  UNIT_RADIUS,
+  UNIT_STROKE_WIDTH,
+  VIEW_BOX_SIZE,
 } from '../constants/board'
 import { INITIAL_BOARD_STATE } from '../constants/game'
 import { boardReducer } from '../state/boardReducer'
@@ -77,6 +84,31 @@ describe('boardReducer', () => {
       })
       expect(next.units.self.x).toBe(UNIT_COORD_X_MIN)
       expect(next.units.self.y).toBe(UNIT_COORD_Y_MIN)
+    })
+
+    it('safe range keeps the visual bounding box within viewBox', () => {
+      // 不変条件テスト: UNIT_COORD_*_{MIN,MAX} の境界値で実際に円とラベルを
+      // 描画したとき、stroke を含めた視覚 bbox が [0, VIEW_BOX_SIZE] に収まること
+      // を計算で検証する。constants/board.ts の式を変更したらここで気づける。
+      const strokeHalf = UNIT_STROKE_WIDTH / 2
+      const labelStrokeHalf = UNIT_LABEL_STROKE_WIDTH / 2
+
+      // 円の左端 (x_min での)
+      expect(UNIT_COORD_X_MIN - UNIT_RADIUS - strokeHalf).toBeGreaterThanOrEqual(0)
+      // 円の右端 (x_max での)
+      expect(UNIT_COORD_X_MAX + UNIT_RADIUS + strokeHalf).toBeLessThanOrEqual(
+        VIEW_BOX_SIZE,
+      )
+      // 円の上端 (y_min での)
+      expect(UNIT_COORD_Y_MIN - UNIT_RADIUS - strokeHalf).toBeGreaterThanOrEqual(0)
+      // ラベルの下端 (y_max での)
+      expect(
+        UNIT_COORD_Y_MAX +
+          UNIT_RADIUS +
+          UNIT_LABEL_GAP +
+          UNIT_LABEL_HEIGHT +
+          labelStrokeHalf,
+      ).toBeLessThanOrEqual(VIEW_BOX_SIZE)
     })
   })
 

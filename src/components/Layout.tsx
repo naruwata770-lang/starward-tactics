@@ -12,10 +12,11 @@
  * - 親 main は flex で残り領域を埋める。`min-h-0` を入れて flex 子要素が
  *   親より大きくなったら縮められるようにする (これがないと縦狭横長の画面で
  *   盤面が aside と干渉する)。
- * - 盤面コンテナは max-w/max-h を VIEW_BOX_SIZE にした矩形。SVG 自身が
- *   `width="100%" height="100%"` + viewBox + 既定の preserveAspectRatio
- *   (xMidYMid meet) で正方形を維持してくれるので、コンテナ側に
- *   aspect-square は不要。
+ * - 盤面コンテナは max-w/max-h を VIEW_BOX_SIZE にした矩形。SVG 自体は
+ *   `width="100%" height="100%"` でこの矩形をそのまま埋めるが、内部の
+ *   viewBox 描画は既定の preserveAspectRatio (xMidYMid meet) によって
+ *   アスペクト比を保ったまま中央配置される。結果として描画は常に正方形に
+ *   見えるので、コンテナ側に aspect-square を付ける必要はない。
  */
 
 import type { ReactNode } from 'react'

@@ -25,6 +25,9 @@ export const UNIT_RADIUS = 30
 /** ユニット円の縁取り幅 */
 export const UNIT_STROKE_WIDTH = 2
 
+/** 名前ラベル (ピル) の枠線の幅 */
+export const UNIT_LABEL_STROKE_WIDTH = 1
+
 /** 名前ラベル (ピル) の幅 */
 export const UNIT_LABEL_WIDTH = 56
 
@@ -35,16 +38,36 @@ export const UNIT_LABEL_HEIGHT = 18
 export const UNIT_LABEL_GAP = 6
 
 /**
+ * SVG の stroke は path の中心線から内外に半分ずつ広がる。
+ * 安全範囲を計算する際は描画寸法 (半径や高さ) に加えてこの分も内側に
+ * 食い込ませないと、境界値で 1px 程度のはみ出しが残る。
+ */
+const UNIT_STROKE_HALF = UNIT_STROKE_WIDTH / 2
+const UNIT_LABEL_STROKE_HALF = UNIT_LABEL_STROKE_WIDTH / 2
+
+/**
  * ユニット中心 (x, y) の許容範囲。
  *
- * 円とラベルが viewBox からはみ出さないよう、描画サイズぶんマージンを取る。
- * - 左/右/上: 円の半径ぶん内側
- * - 下: 円の半径 + ラベルの高さ + 隙間 ぶん内側 (ラベルが下に出るため非対称)
+ * 円とラベル (枠線を含む) が viewBox からはみ出さないよう、描画寸法ぶん
+ * マージンを取る。
+ * - 左/右/上: 円の半径 + 円 stroke 半幅 ぶん内側
+ * - 下: 円下端より下に出るラベル全体 (gap + label height + label stroke 半幅)
+ *       ぶん内側 (上下非対称)
  *
  * boardReducer の MOVE_UNIT / COMMIT_MOVE はこの範囲にクランプする。
+ * `__tests__/boardReducer.test.ts` の不変条件テストで、これらの定数から
+ * 計算される視覚 bounding box が [0, VIEW_BOX_SIZE] に収まることを保証している。
  */
-export const UNIT_COORD_X_MIN = UNIT_RADIUS
-export const UNIT_COORD_X_MAX = VIEW_BOX_SIZE - UNIT_RADIUS
-export const UNIT_COORD_Y_MIN = UNIT_RADIUS
+/** x の左端: 円の左端 (stroke 含む) が 0 以上になる最小値 */
+export const UNIT_COORD_X_MIN = UNIT_RADIUS + UNIT_STROKE_HALF
+/** x の右端: 円の右端 (stroke 含む) が VIEW_BOX_SIZE 以下になる最大値 */
+export const UNIT_COORD_X_MAX = VIEW_BOX_SIZE - UNIT_RADIUS - UNIT_STROKE_HALF
+/** y の上端: 円の上端 (stroke 含む) が 0 以上になる最小値 */
+export const UNIT_COORD_Y_MIN = UNIT_RADIUS + UNIT_STROKE_HALF
+/** y の下端: ラベル下端 (stroke 含む) が VIEW_BOX_SIZE 以下になる最大値 */
 export const UNIT_COORD_Y_MAX =
-  VIEW_BOX_SIZE - UNIT_RADIUS - UNIT_LABEL_GAP - UNIT_LABEL_HEIGHT
+  VIEW_BOX_SIZE -
+  UNIT_RADIUS -
+  UNIT_LABEL_GAP -
+  UNIT_LABEL_HEIGHT -
+  UNIT_LABEL_STROKE_HALF
