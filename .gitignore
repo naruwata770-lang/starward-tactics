@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Temp files (e.g. ask-others / review skill prompts)
+.tmp/
+
+# Claude Code local settings (skills, etc.)
+.claude/
