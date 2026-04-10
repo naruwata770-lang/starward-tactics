@@ -22,3 +22,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Temp files (e.g. ask-others / review skill prompts)
+.tmp/
+
+# Claude Code のローカル設定（skills など）
+# 公開リポジトリのため、個人のレビュー基準やプロジェクト固有でない設定は含めない方針。
+# プロジェクト固有のルールは README.md / CONTRIBUTING.md に書く。
+.claude/
