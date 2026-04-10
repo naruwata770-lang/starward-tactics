@@ -3,6 +3,9 @@
  *
  * UnitToken 側の SB バーと連動する。
  *
+ * ARIA: toggle button group として `aria-pressed` 方式で表現する。他セレクタ
+ * (UnitSelector / CostSelector 等) と一貫させるため `role="radio"` は使わない。
+ *
  * memo 化: 親 InspectorPanel の再 render に引きずられないよう、props のシャロー比較で bailout する。
  */
 
@@ -24,15 +27,14 @@ export const StarburstGauge = memo(function StarburstGauge({
   const dispatch = useBoardDispatch()
 
   return (
-    <div role="radiogroup" aria-label="覚醒ゲージ" className="flex gap-2">
+    <div role="group" aria-label="覚醒ゲージ" className="flex gap-2">
       {STARBURST_LEVELS.map((level) => {
         const isSelected = current === level
         return (
           <button
             key={level}
             type="button"
-            role="radio"
-            aria-checked={isSelected}
+            aria-pressed={isSelected}
             onClick={() =>
               dispatch({ type: 'SET_STARBURST', unitId, level })
             }

@@ -23,16 +23,23 @@
 
 import {
   UNIT_COST_FONT_SIZE,
+  UNIT_COST_TEXT_COLOR,
+  UNIT_COST_Y_NUDGE,
+  UNIT_LABEL_BG_COLOR,
   UNIT_LABEL_FONT_SIZE,
   UNIT_LABEL_GAP,
   UNIT_LABEL_HEIGHT,
   UNIT_LABEL_STROKE_WIDTH,
+  UNIT_LABEL_TEXT_COLOR,
   UNIT_LABEL_WIDTH,
   UNIT_RADIUS,
+  UNIT_SB_BAR_EMPTY_COLOR,
+  UNIT_SB_BAR_FILLED_COLOR,
   UNIT_SB_BAR_GAP,
   UNIT_SB_BAR_HEIGHT,
   UNIT_SB_BAR_WIDTH,
   UNIT_SB_Y_OFFSET,
+  UNIT_STROKE_COLOR,
   UNIT_STROKE_WIDTH,
 } from '../../constants/board'
 import {
@@ -46,12 +53,6 @@ import type { StarburstLevel, Unit } from '../../types/board'
 const LABEL_OFFSET_Y = UNIT_RADIUS + UNIT_LABEL_GAP
 // ピル型の角丸半径 (高さの半分)
 const LABEL_CORNER_RADIUS = UNIT_LABEL_HEIGHT / 2
-
-// SB バーの色
-// 空状態をピル背景と同じ濃い紺にすることで、円の明色 (sky/blue/red/rose) とのコントラストを強くする
-// (薄い slate だと色付き円の上で見えにくい)
-const SB_BAR_FILLED = '#fbbf24' // amber-400
-const SB_BAR_EMPTY = '#0f172a' // slate-900 (pill 背景と同色)
 
 /**
  * StarburstLevel から「点灯セグメント数 (0..2)」を返す。
@@ -95,7 +96,7 @@ export function UnitToken({ unit }: UnitTokenProps) {
         cy={unit.y}
         r={UNIT_RADIUS}
         fill={color}
-        stroke="#0f172a"
+        stroke={UNIT_STROKE_COLOR}
         strokeWidth={UNIT_STROKE_WIDTH}
       />
 
@@ -105,8 +106,8 @@ export function UnitToken({ unit }: UnitTokenProps) {
       */}
       <text
         x={unit.x}
-        y={unit.y - 2}
-        fill="#f8fafc"
+        y={unit.y - UNIT_COST_Y_NUDGE}
+        fill={UNIT_COST_TEXT_COLOR}
         fontSize={UNIT_COST_FONT_SIZE}
         fontWeight={700}
         fontFamily="system-ui, -apple-system, sans-serif"
@@ -131,7 +132,7 @@ export function UnitToken({ unit }: UnitTokenProps) {
             height={UNIT_SB_BAR_HEIGHT}
             rx={1}
             ry={1}
-            fill={filled ? SB_BAR_FILLED : SB_BAR_EMPTY}
+            fill={filled ? UNIT_SB_BAR_FILLED_COLOR : UNIT_SB_BAR_EMPTY_COLOR}
           />
         )
       })}
@@ -144,7 +145,7 @@ export function UnitToken({ unit }: UnitTokenProps) {
         height={UNIT_LABEL_HEIGHT}
         rx={LABEL_CORNER_RADIUS}
         ry={LABEL_CORNER_RADIUS}
-        fill="#0f172a"
+        fill={UNIT_LABEL_BG_COLOR}
         stroke={color}
         strokeWidth={UNIT_LABEL_STROKE_WIDTH}
       />
@@ -157,7 +158,7 @@ export function UnitToken({ unit }: UnitTokenProps) {
       <text
         x={unit.x}
         y={unit.y + LABEL_OFFSET_Y + UNIT_LABEL_HEIGHT / 2}
-        fill="#e2e8f0"
+        fill={UNIT_LABEL_TEXT_COLOR}
         fontSize={UNIT_LABEL_FONT_SIZE}
         fontFamily="system-ui, -apple-system, sans-serif"
         textAnchor="middle"

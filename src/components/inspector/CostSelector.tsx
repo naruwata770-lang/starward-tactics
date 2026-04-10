@@ -1,8 +1,10 @@
 /**
  * CostSelector: 1.5 / 2 / 2.5 / 3 のうち 1 つを選ぶ。
  *
- * 値はラジオ的なボタングループとして表現する (`role="radiogroup"`)。
- * 選択中ボタンは背景色を反転して強調。
+ * ARIA: toggle button group として `aria-pressed` 方式で表現する。
+ * `role="radio"` は WAI-ARIA APG が要求する矢印キーナビゲーションや roving
+ * tabIndex の実装を伴うため、Phase 4 段階ではフル実装せず、セレクタ間で一貫して
+ * `aria-pressed` を使う (UnitSelector 等と揃える)。選択中ボタンは背景色を反転して強調。
  *
  * memo 化: 親 InspectorPanel は board 全体を購読しているため MOVE_UNIT 等で
  * 毎フレーム再 render される。props (unitId / current の数値) のシャロー比較で
@@ -27,15 +29,14 @@ export const CostSelector = memo(function CostSelector({
   const dispatch = useBoardDispatch()
 
   return (
-    <div role="radiogroup" aria-label="コスト" className="flex gap-2">
+    <div role="group" aria-label="コスト" className="flex gap-2">
       {COSTS.map((cost) => {
         const isSelected = current === cost
         return (
           <button
             key={cost}
             type="button"
-            role="radio"
-            aria-checked={isSelected}
+            aria-pressed={isSelected}
             onClick={() => dispatch({ type: 'SET_COST', unitId, cost })}
             className={`flex-1 rounded-md px-2 py-2 text-sm font-bold transition ${
               isSelected

@@ -4,6 +4,9 @@
  * 各ボタンは CORE_TYPES のメタデータの色を背景に使い、コアの色を一目で
  * 認識できるようにする。
  *
+ * ARIA: toggle button group として `aria-pressed` 方式で表現する。他セレクタ
+ * (UnitSelector / CostSelector 等) と一貫させるため `role="radio"` は使わない。
+ *
  * memo 化: 親 InspectorPanel の再 render に引きずられないよう、props のシャロー比較で bailout する。
  */
 
@@ -26,7 +29,7 @@ export const CoreTypeSelector = memo(function CoreTypeSelector({
 
   return (
     <div
-      role="radiogroup"
+      role="group"
       aria-label="コア種別"
       className="grid grid-cols-3 gap-2"
     >
@@ -36,8 +39,7 @@ export const CoreTypeSelector = memo(function CoreTypeSelector({
           <button
             key={id}
             type="button"
-            role="radio"
-            aria-checked={isSelected}
+            aria-pressed={isSelected}
             onClick={() =>
               dispatch({ type: 'SET_CORE_TYPE', unitId, coreType: id })
             }
