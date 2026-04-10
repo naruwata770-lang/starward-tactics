@@ -1,18 +1,51 @@
 import { Layout } from './components/Layout'
 import { Board } from './components/board/Board'
 import { InspectorPanel } from './components/inspector/InspectorPanel'
+import { Toolbar } from './components/toolbar/Toolbar'
+import { useUrlSync } from './hooks/useUrlSync'
 import { BoardProvider } from './state/BoardProvider'
+import { decode } from './state/urlCodec'
+import type { BoardState } from './types/board'
 
-// TODO(Phase 5): Toolbar の本実装 (Undo/Redo, Reset, 共有 URL など) に置き換える。
-function ToolbarPlaceholder() {
-  return <h1 className="text-lg font-bold">星の翼 戦術ボード</h1>
+/**
+ * URL クエリ ?b= を **同期** で読み取って初期 state に変換する。
+ *
+ * useUrlSync の effect で後追い LOAD_STATE する設計だと、初回 1 フレームだけ
+ * デフォルト盤面が描画されてしまう (フラッシュ)。さらに `state→URL` のデバウンス
+ * effect が同時に走り、復元前の state を pending に積んでしまう race も起きる。
+ *
+ * BoardProvider に initialState を渡せば、最初の render から正しい state で
+ * 描画され、useUrlSync は「state→URL 書き戻し + popstate」の責務だけに絞れる。
+ *
+ * SSR ガード: `typeof window !== 'undefined'` で念のため早期 return。
+ * 不正な URL は黙って無視 (initial state で起動)。
+ */
+function readInitialBoardStateFromUrl(): BoardState | undefined {
+  if (typeof window === 'undefined') return undefined
+  const param = new URLSearchParams(window.location.search).get('b')
+  if (param === null) return undefined
+  return decode(param) ?? undefined
+}
+
+/**
+ * URL ↔ state 同期 hook を BoardProvider の内側で呼ぶための小さな bridge。
+ * useUrlSync は useBoard / useBoardDispatch に依存するため、Provider の外では
+ * 呼べない。null を返すだけのレンダーレスコンポーネント。
+ */
+function UrlSyncBridge() {
+  useUrlSync()
+  return null
 }
 
 function App() {
+  // 同期で URL から初期 state を構築 (初回フラッシュと race condition の根本解消)
+  const initialState = readInitialBoardStateFromUrl()
+
   return (
-    <BoardProvider>
+    <BoardProvider initialState={initialState}>
+      <UrlSyncBridge />
       <Layout
-        toolbar={<ToolbarPlaceholder />}
+        toolbar={<Toolbar />}
         board={<Board />}
         inspector={<InspectorPanel />}
       />
