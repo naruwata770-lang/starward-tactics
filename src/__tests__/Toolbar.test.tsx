@@ -31,6 +31,10 @@ function Probe() {
 afterEach(() => {
   cleanup()
   vi.restoreAllMocks()
+  // happy-dom は元々 window.confirm を持たないため、vi.stubGlobal で代入した
+  // モックは vi.unstubAllGlobals() で元の (= undefined) 状態に戻す。
+  // これを忘れると後続テストに stub が漏れて順序依存の失敗を起こす。
+  vi.unstubAllGlobals()
 })
 
 /**
@@ -89,8 +93,9 @@ describe('Toolbar buttons', () => {
   describe('ResetButton', () => {
     it('does not dispatch RESET when confirm is cancelled', async () => {
       const user = userEvent.setup()
-      // happy-dom は window.confirm を持たないので、直接代入で mock する
-      window.confirm = vi.fn().mockReturnValue(false)
+      // happy-dom は window.confirm を持たないので、vi.stubGlobal で stub する
+      // (afterEach の vi.unstubAllGlobals() で確実に元に戻る)
+      vi.stubGlobal('confirm', vi.fn().mockReturnValue(false))
 
       render(
         <BoardProvider>
@@ -111,7 +116,7 @@ describe('Toolbar buttons', () => {
 
     it('dispatches RESET and restores INITIAL_BOARD_STATE when confirm is accepted', async () => {
       const user = userEvent.setup()
-      window.confirm = vi.fn().mockReturnValue(true)
+      vi.stubGlobal('confirm', vi.fn().mockReturnValue(true))
 
       render(
         <BoardProvider>
