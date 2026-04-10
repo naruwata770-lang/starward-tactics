@@ -1,13 +1,19 @@
 /**
- * Board: 720x720 の SVG 盤面ルート。
+ * Board: VIEW_BOX_SIZE の SVG 盤面ルート。
  *
  * Phase 3 では <defs> + 背景 + ユニット 4 機の静的描画のみ。
- * インタラクション（ドラッグ、選択）は Phase 4 以降で追加する。
+ * インタラクション (ドラッグ、選択) は Phase 4 以降で追加する。
  *
  * 重要: この <svg> 内では Tailwind class を使わず、すべて属性で色を指定する。
  * Phase 9 の PNG 出力で外部 CSS が解決されない問題を避けるため。
+ *
+ * z-order: UNIT_IDS の並び順がそのまま描画順 (後勝ち) になる。
+ * `self → ally → enemy1 → enemy2` の順なので enemy2 が最前面に描かれる。
+ * Phase 4 以降で「選択中ユニットを最前面にしたい」等の要件が出た場合は
+ * ここのソート順を調整する。
  */
 
+import { VIEW_BOX_SIZE } from '../../constants/board'
 import { UNIT_IDS } from '../../constants/game'
 import { useBoard } from '../../state/BoardContext'
 import { GridBackground } from './GridBackground'
@@ -19,13 +25,14 @@ export function Board() {
 
   return (
     <svg
-      viewBox="0 0 720 720"
+      viewBox={`0 0 ${VIEW_BOX_SIZE} ${VIEW_BOX_SIZE}`}
       xmlns="http://www.w3.org/2000/svg"
       width="100%"
       height="100%"
       role="img"
       aria-label="戦術ボード"
     >
+      <title>戦術ボード</title>
       <SvgDefs />
       <GridBackground />
       {UNIT_IDS.map((id) => (

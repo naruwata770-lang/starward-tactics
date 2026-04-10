@@ -272,12 +272,14 @@ describe('withHistory', () => {
     it('respects custom limit option', () => {
       const reducer = withHistory(boardReducer, { limit: 3 })
       let state = createInitialHistory(INITIAL_BOARD_STATE)
+      // 100 から開始することで全ての値が UNIT_COORD_X_MIN/MAX の安全範囲に
+      // 確実に入るようにする (クランプで同じ値に潰れて履歴が増えない事故を防ぐ)
       for (let i = 0; i < 10; i++) {
         state = reducer(state, {
           type: 'COMMIT_MOVE',
           unitId: 'self',
-          x: i + 1,
-          y: 0,
+          x: 100 + i,
+          y: 100,
         })
       }
       expect(state.past).toHaveLength(3)
@@ -289,12 +291,12 @@ describe('withHistory', () => {
         state = historicalReducer(state, {
           type: 'COMMIT_MOVE',
           unitId: 'self',
-          x: i + 1,
-          y: 0,
+          x: 100 + i,
+          y: 100,
         })
       }
       expect(state.past).toHaveLength(DEFAULT_HISTORY_LIMIT)
-      expect(state.present.units.self.x).toBe(DEFAULT_HISTORY_LIMIT + 5)
+      expect(state.present.units.self.x).toBe(100 + DEFAULT_HISTORY_LIMIT + 4)
     })
 
     it('limit: 0 keeps no history (regression: slice(-0) bug)', () => {

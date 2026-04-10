@@ -4,13 +4,21 @@
  * Undo/Redo は withHistory ラッパーで扱うため、ここでは UNDO/REDO は処理しない。
  */
 
+import {
+  UNIT_COORD_X_MAX,
+  UNIT_COORD_X_MIN,
+  UNIT_COORD_Y_MAX,
+  UNIT_COORD_Y_MIN,
+} from '../constants/board'
 import { INITIAL_BOARD_STATE } from '../constants/game'
 import type { BoardAction, BoardState, Unit, UnitId } from '../types/board'
 
-/** SVG viewBox の範囲。座標はこの範囲にクランプする */
-const COORD_MIN = 0
-const COORD_MAX = 720
-
+/**
+ * 中心座標のクランプ範囲は constants/board.ts に集約している。
+ * 範囲は「円とラベルが viewBox 内に収まる」ように描画サイズぶんマージンを取った
+ * 安全範囲で、x/y の上下限が非対称なのはラベルが円の下に出る分だけ y 上限が
+ * 厳しくなるため。
+ */
 function clamp(value: number, min: number, max: number): number {
   if (Number.isNaN(value)) return min
   return Math.max(min, Math.min(max, value))
@@ -51,8 +59,8 @@ export function boardReducer(state: BoardState, action: BoardAction): BoardState
     case 'MOVE_UNIT':
     case 'COMMIT_MOVE':
       return updateUnit(state, action.unitId, {
-        x: clamp(action.x, COORD_MIN, COORD_MAX),
-        y: clamp(action.y, COORD_MIN, COORD_MAX),
+        x: clamp(action.x, UNIT_COORD_X_MIN, UNIT_COORD_X_MAX),
+        y: clamp(action.y, UNIT_COORD_Y_MIN, UNIT_COORD_Y_MAX),
       })
 
     case 'SET_DIRECTION':

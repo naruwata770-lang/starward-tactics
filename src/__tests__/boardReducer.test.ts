@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
+import {
+  UNIT_COORD_X_MIN,
+  UNIT_COORD_Y_MAX,
+  UNIT_COORD_Y_MIN,
+} from '../constants/board'
 import { INITIAL_BOARD_STATE } from '../constants/game'
 import { boardReducer } from '../state/boardReducer'
 import type { BoardState } from '../types/board'
@@ -50,26 +55,28 @@ describe('boardReducer', () => {
       expect(next.units.enemy1).toBe(INITIAL_BOARD_STATE.units.enemy1)
     })
 
-    it('clamps coordinates outside [0, 720]', () => {
+    it('clamps coordinates outside the safe draw range', () => {
+      // クランプ範囲は viewBox の生 [0, 720] ではなく、円とラベルが
+      // 収まるようマージンを取った範囲 (constants/board.ts)。
       const next = boardReducer(INITIAL_BOARD_STATE, {
         type: 'COMMIT_MOVE',
         unitId: 'self',
         x: -100,
         y: 9999,
       })
-      expect(next.units.self.x).toBe(0)
-      expect(next.units.self.y).toBe(720)
+      expect(next.units.self.x).toBe(UNIT_COORD_X_MIN)
+      expect(next.units.self.y).toBe(UNIT_COORD_Y_MAX)
     })
 
-    it('clamps NaN coordinates to 0', () => {
+    it('clamps NaN coordinates to the minimum of the safe range', () => {
       const next = boardReducer(INITIAL_BOARD_STATE, {
         type: 'COMMIT_MOVE',
         unitId: 'self',
         x: Number.NaN,
         y: Number.NaN,
       })
-      expect(next.units.self.x).toBe(0)
-      expect(next.units.self.y).toBe(0)
+      expect(next.units.self.x).toBe(UNIT_COORD_X_MIN)
+      expect(next.units.self.y).toBe(UNIT_COORD_Y_MIN)
     })
   })
 
