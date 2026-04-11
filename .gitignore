@@ -33,3 +33,9 @@ dist-ssr
 # - 個人横断の設定は ~/.claude/ (ユーザーレベル) に置く。
 # - このマシン固有の一時オーバーライドだけ settings.local.json で除外する。
 .claude/settings.local.json
+
+# parallel-worktree skill (~/.claude/skills/parallel-worktree/、user-level) が
+# 作る git worktree の置き場。worktree 作成のたびに親 repo が untracked で
+# dirty にならないように除外する。Claude Code の `claude --worktree` が自動で
+# 使う置き場でもあるので、手動運用時もここに統一される。
+.claude/worktrees/
