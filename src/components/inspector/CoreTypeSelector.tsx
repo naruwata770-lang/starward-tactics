@@ -11,8 +11,25 @@
  *
  * ARIA: toggle button group として `aria-pressed` 方式で表現する。他セレクタ
  * (UnitSelector / CostSelector 等) と一貫させるため `role="radio"` は使わない。
- * ボタンの可視テキストが「F 格闘」のように id + 補助ラベルになるので、
- * スクリーンリーダーには両方読み上げられる (`aria-label` を別途付けない)。
+ *
+ * `aria-label` を付けない理由 (#27 review で議論):
+ * - First Rule of ARIA Use (https://www.w3.org/TR/using-aria/#rule1) に従い、
+ *   可視テキストがそのまま accessible name になる方式を採る。「格闘 (F)」を
+ *   `aria-label` で固定する案も挙がったが、視覚と読み上げが一致した方が
+ *   ユーザー間の体験が揃う (晴眼者と SR ユーザーが同じ言葉でラベルを呼べる)。
+ * - 子の <span> を分割してもブラウザの accessible name 計算は flex/block 配下の
+ *   子テキストを空白区切りで連結するため (Chromium / Firefox で確認済み)、
+ *   読み上げは「F 格闘」になる。連結区切りを保証するため flex-col の二段組で
+ *   構造的に分けてある。
+ *
+ * 文字サイズ `text-[10px]` の理由:
+ * - 「カバーリング」(6 文字) を `lg:w-80` (320px) - p-4 (32px) - gap-2 (16px) を
+ *   3 列で割った 1 列 ~80px に、px-2 内側パディング込みで wrap させずに収める
+ *   ための実測値。`text-xs` (12px) では「カバーリング」が改行され、`leading-none`
+ *   と相まってカードの縦幅が崩れる。`whitespace-nowrap` を併用しているのは
+ *   font 差で wrap が起きた場合の保険。
+ * - これは CoreTypeSelector ローカルの調整で、他で再利用する予定がないため
+ *   constants 化はしない。複数箇所で要るようになったら theme.extend.fontSize へ。
  *
  * memo 化: 親 InspectorPanel の再 render に引きずられないよう、props のシャロー比較で bailout する。
  */
@@ -60,7 +77,7 @@ export const CoreTypeSelector = memo(function CoreTypeSelector({
             style={{ backgroundColor: color }}
           >
             <span className="text-sm font-bold leading-none">{id}</span>
-            <span className="text-[10px] font-semibold leading-none">
+            <span className="whitespace-nowrap text-[10px] font-semibold leading-none">
               {label}
             </span>
           </button>

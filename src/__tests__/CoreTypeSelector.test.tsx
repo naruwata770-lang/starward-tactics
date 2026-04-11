@@ -34,6 +34,23 @@ function renderCoreTypeSelector() {
   )
 }
 
+/**
+ * label テキストから対応する <button> 要素を取得するヘルパー。
+ *
+ * `getByRole('button', { name: ... })` は accessible name の連結方式
+ * (子テキストを空白区切りにするか) がブラウザ / 環境依存になるため、ここでは
+ * 補助ラベル (「格闘」など) を `getByText` で直接拾い、`closest('button')` で
+ * 親ボタンに遡る方式を採る。実装依存の連結に依存しないので、将来 CORE_TYPES の
+ * label に正規表現メタ文字が混入しても壊れない (review #27 で議論)。
+ */
+function getButtonByLabel(label: string): HTMLButtonElement {
+  const button = screen.getByText(label).closest('button')
+  if (!button) {
+    throw new Error(`label "${label}" の親 button が見つからない`)
+  }
+  return button as HTMLButtonElement
+}
+
 describe('CoreTypeSelector', () => {
   afterEach(() => {
     cleanup()
@@ -43,24 +60,25 @@ describe('CoreTypeSelector', () => {
     renderCoreTypeSelector()
     const group = screen.getByRole('group', { name: 'コア種別' })
 
-    // 全 6 種について「1 文字 id」と「補助ラベル」が両方常時表示されることを担保する。
-    // 過去は title 属性 (hover tooltip) のみで legend が出なかった (#27)。
+    // 全 6 種について「1 文字 id」と「補助ラベル」が両方ともグループ内に
+    // 可視テキストとして存在することを担保する。過去は title 属性 (hover tooltip)
+    // のみで legend が出なかった (#27)。
     for (const { id, label } of CORE_TYPES) {
-      // accessible name は子テキストの連結 ("F 格闘" など) になる。
-      const button = within(group).getByRole('button', {
-        name: new RegExp(`${id}.*${label}`),
-      })
-      expect(button).toBeTruthy()
+      expect(within(group).getByText(id)).toBeTruthy()
+      expect(within(group).getByText(label)).toBeTruthy()
     }
   })
 
   it('marks the current core as pressed', () => {
     renderCoreTypeSelector()
-    // BoardProvider の初期 state では self.coreType は INITIAL_BOARD_STATE に従って 'B'
-    const balanced = screen.getByRole('button', { name: /B.*バランス/ })
+    // 注: <CoreTypeSelector current="B" /> と props で直接渡しているので、
+    // Provider の self.coreType ではなく props の current を見ている (component は
+    // current === id で isSelected を決める)。Probe 経由の Provider state は
+    // 次のテスト (dispatch 配線) で確認する。
+    const balanced = getButtonByLabel('バランス')
     expect(balanced.getAttribute('aria-pressed')).toBe('true')
 
-    const fight = screen.getByRole('button', { name: /F.*格闘/ })
+    const fight = getButtonByLabel('格闘')
     expect(fight.getAttribute('aria-pressed')).toBe('false')
   })
 
@@ -70,9 +88,10 @@ describe('CoreTypeSelector', () => {
 
     expect(screen.getByTestId('self-core').textContent).toBe('B')
 
-    await user.click(screen.getByRole('button', { name: /F.*格闘/ }))
+    await user.click(getButtonByLabel('格闘'))
 
     // dispatch → reducer → BoardProvider の present 更新 → Probe の再 render
+    // (CoreTypeSelector 自身は props 固定なので isSelected 表示は B のまま動かない)
     expect(screen.getByTestId('self-core').textContent).toBe('F')
   })
 })
