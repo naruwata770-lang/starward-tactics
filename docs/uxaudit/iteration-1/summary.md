@@ -65,7 +65,8 @@ Credo 4 原則で言うと「**Orient (自分が何を見ているか伝える)*
      - Toolbar 右端に「URL をコピー」ボタン (アイコン + tooltip)
      - h1 の横に小さく「この URL を共有すれば盤面が再現されます」の hint
      - アドレスバーフォーカス誘導 (初回 mount 時に 2 秒だけ表示する toast)
-   - 既存コメント (`Toolbar.tsx:8-10`) の「明示ボタンは不要」判断は iteration-1 で明確に否定する。
+   - 既存コメント (`src/components/toolbar/Toolbar.tsx:6-9` の「共有 URL を生成」ボタン
+     を置かない判断) は iteration-1 で明確に否定する。
 
 4. **コア種別 (F/S/M/D/B/C) の legend を Inspector に追加**
    - 現状: `CoreTypeSelector.tsx` のボタンは `id` (一文字) のみ表示、`title` 属性で label を hover 時に出す。
@@ -95,8 +96,8 @@ Credo 4 原則で言うと「**Orient (自分が何を見ているか伝える)*
      もしくは UnitSelector の右側に「編集中: 自機」の強調テキスト。
 
 8. **Reset の `window.confirm` は UI トーンと不一致**
-   - 現状: `ResetButton.tsx:22` 。本体は dark slate-950、confirm はブラウザ既定 (ライト)。
-   - `ResetButton.tsx:4` のコメントで「MVP として十分」と明記されている通り、意図的な設計判断。
+   - 現状: `src/components/toolbar/ResetButton.tsx:22`。本体は dark slate-950、confirm はブラウザ既定 (ライト)。
+   - `ResetButton.tsx:5` のコメント「MVP として `window.confirm` で十分」で明記されている通り、意図的な設計判断。
    - 直し方は後続 Phase で Modal primitive を作るまで保留で OK。ただし dark モードの OS 設定下でも
      window.confirm が dark になるわけではないので、既存の UI コントラスト設計とのギャップは記録しておく。
 
