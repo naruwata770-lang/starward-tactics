@@ -47,7 +47,7 @@
  * このファイルは「全部入り」の最終形だが、レビュー時は上の順で読むと意図が追える。
  */
 
-import { memo, useState, type KeyboardEvent } from 'react'
+import { useState, type KeyboardEvent } from 'react'
 
 import {
   UNIT_DIRECTION_PICKER_ARROW_HALF_WIDTH,
@@ -71,19 +71,7 @@ import {
 import { DIRECTION_LABELS, DIRECTIONS_8 } from '../../constants/game'
 import { useBoard, useBoardDispatch, useSelection } from '../../state/BoardContext'
 import type { Direction } from '../../types/board'
-
-/**
- * Direction (度数) を SVG 座標系の単位ベクトル (dx, dy) に変換する。
- *
- * UnitToken と同じ規約: 0° = 上、時計回り、SVG y 反転を考慮して dy = -cos θ。
- * 関数を共通 utility に切り出さない理由: 呼び出しは UnitToken と
- * DirectionPicker の 2 箇所だけで、3 箇所目が現れてから集約する方針 (Codex 低
- * 指摘 + Credo の No Dead Code)。
- */
-function directionToVector(direction: Direction): { dx: number; dy: number } {
-  const rad = (direction * Math.PI) / 180
-  return { dx: Math.sin(rad), dy: -Math.cos(rad) }
-}
+import { directionToVector } from './directionGeometry'
 
 interface DirectionButtonProps {
   centerX: number
@@ -141,9 +129,12 @@ function DirectionButton({
 
   const handleKeyDown = (e: KeyboardEvent<SVGGElement>) => {
     // Enter / Space をボタンの確定として扱う。デフォルト動作 (ページスクロール
-    // など) を抑止してから dispatch。
+    // など) を抑止してから dispatch する。stopPropagation も併用しているのは、
+    // 将来 Board ルートに矢印キー等のショートカットを足したときに、ピッカー
+    // 操作の Enter/Space が親に伝わって誤動作するのを防ぐ保険 (Gemini 中指摘)。
     if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
       e.preventDefault()
+      e.stopPropagation()
       onSelect(direction)
     }
   }
@@ -154,9 +145,6 @@ function DirectionButton({
       aria-label={`${DIRECTION_LABELS[direction]}に変更`}
       aria-pressed={isSelected}
       tabIndex={0}
-      // 一部ブラウザ (古い Edge / Firefox 系) で SVG <g> の focus 受け取りが
-      // 不安定なので明示的に focusable を付ける
-      focusable="true"
       pointerEvents="auto"
       style={{ cursor: 'pointer', outline: 'none' }}
       onClick={(e) => {
@@ -174,7 +162,17 @@ function DirectionButton({
       onFocus={() => onFocus(direction)}
       onBlur={onBlur}
     >
-      {/* 自前 focus ring: <g> のブラウザデフォルト outline に頼らない */}
+      {/*
+        <title> を <g> 直下の先頭に置く (SVG 慣例).
+        多くのブラウザは要素の先頭の <title> をネイティブツールチップとして
+        優先的に拾う。
+      */}
+      <title>{DIRECTION_LABELS[direction]}に変更</title>
+      {/*
+        自前 focus ring: <g> のブラウザデフォルト outline に頼らない。
+        focus 中だけ表示。pointer-events="none" を付けて、リングの stroke 幅
+        ぶんだけヒット領域が広がってしまうのを防ぐ (Codex 低指摘)。
+      */}
       {isFocused && (
         <circle
           cx={centerX}
@@ -183,6 +181,7 @@ function DirectionButton({
           fill="none"
           stroke={UNIT_DIRECTION_PICKER_FOCUS_RING_STROKE}
           strokeWidth={UNIT_DIRECTION_PICKER_FOCUS_RING_STROKE_WIDTH}
+          pointerEvents="none"
           aria-hidden="true"
         />
       )}
@@ -212,8 +211,6 @@ function DirectionButton({
         fill={UNIT_DIRECTION_PICKER_BUTTON_SELECTED_STROKE}
         pointerEvents="none"
       />
-      {/* スクリーンリーダー / hover ツールチップ用の冗長ラベル */}
-      <title>{DIRECTION_LABELS[direction]}に変更</title>
     </g>
   )
 }
@@ -221,10 +218,19 @@ function DirectionButton({
 /**
  * 8 方向ピッカー本体。
  *
- * memo 化はしない。selection / direction が変わる頻度は低く、内側に React state
- * (focused) を持つので memo の効果が薄い。
+ * memo 化していない理由:
+ * - props を持たない (親 Board は <DirectionPicker /> としか書けない) ので
+ *   memo の参照同一性 bailout が効かない
+ * - 内部で useBoard / useSelection / 自前 useState を購読するため、render を
+ *   抑えるには props 経由の最適化ではなく context の subscription 設計が必要
+ *   (= memo 単独では効果が薄い)
+ * - ピッカーの再 render コストは 8 ボタン分の SVG 出力だけで現状軽量
+ *
+ * 将来「ドラッグ中に毎フレーム再 render される」コストが顕在化したら、
+ * useDrag のように context 購読を消して props 経由に切り替える設計を検討する
+ * (Phase 6 / PR #25 と同じ手法)。
  */
-export const DirectionPicker = memo(function DirectionPicker() {
+export function DirectionPicker() {
   const board = useBoard()
   const { selectedUnit } = useSelection()
   const dispatch = useBoardDispatch()
@@ -268,4 +274,4 @@ export const DirectionPicker = memo(function DirectionPicker() {
       })}
     </g>
   )
-})
+}

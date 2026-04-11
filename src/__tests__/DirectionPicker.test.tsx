@@ -24,10 +24,14 @@ import {
   UNIT_COORD_X_MAX,
   UNIT_COORD_Y_MAX,
 } from '../constants/board'
-import { DIRECTIONS_8, INITIAL_BOARD_STATE } from '../constants/game'
+import {
+  DIRECTION_LABELS,
+  DIRECTIONS_8,
+  INITIAL_BOARD_STATE,
+} from '../constants/game'
 import { useBoard, useSelection } from '../state/BoardContext'
 import { BoardProvider } from '../state/BoardProvider'
-import type { BoardState, Direction } from '../types/board'
+import type { BoardState } from '../types/board'
 
 afterEach(() => {
   cleanup()
@@ -109,11 +113,11 @@ describe('DirectionPicker', () => {
     // role="button" の <g> が 8 個
     const buttons = screen.getAllByRole('button', { name: /に変更$/ })
     expect(buttons).toHaveLength(8)
-    // 8 方向すべてのラベルが存在する。
-    // 注: 「上向きに変更」と「左上向きに変更」が部分マッチしないよう anchor で挟む。
+    // 8 方向すべてのラベルが存在する。文字列指定なら testing-library が
+    // 完全一致で照合してくれるため、anchor 付き正規表現は不要。
     for (const direction of DIRECTIONS_8) {
       const btn = screen.getByRole('button', {
-        name: new RegExp(`^${directionLabel(direction)}に変更$`),
+        name: `${DIRECTION_LABELS[direction]}に変更`,
       })
       expect(btn).toBeTruthy()
     }
@@ -234,7 +238,7 @@ describe('DirectionPicker', () => {
 
   it('Board integrates DirectionPicker so the full svg renders 8 picker buttons', () => {
     // 統合テスト: Board 全体の中で DirectionPicker が描画されることを確認
-    render(
+    const { container } = render(
       <BoardProvider>
         <Board />
       </BoardProvider>,
@@ -242,24 +246,11 @@ describe('DirectionPicker', () => {
     expect(
       screen.getAllByRole('button', { name: /に変更$/ }),
     ).toHaveLength(8)
+    // Phase 7 レビュー反映: SVG ルートの overflow デフォルトは hidden なので、
+    // ピッカーが viewBox 外に出ても見えるよう overflow="visible" を明示している
+    // ことをここでロックする (Board.tsx を将来触ったときの早期検知)。
+    const svgRoot = container.querySelector('svg[role="img"]')
+    expect(svgRoot).not.toBeNull()
+    expect(svgRoot!.getAttribute('overflow')).toBe('visible')
   })
 })
-
-/**
- * テスト中の `name: 'X向きに変更'` 構築を direction → ラベルで引くための小ヘルパー。
- * `DIRECTION_LABELS` を再 import すると親の constants 変更時に二重メンテに
- * なるので、テスト側で簡易マップを持つ。
- */
-function directionLabel(direction: Direction): string {
-  const map: Record<Direction, string> = {
-    0: '上向き',
-    45: '右上向き',
-    90: '右向き',
-    135: '右下向き',
-    180: '下向き',
-    225: '左下向き',
-    270: '左向き',
-    315: '左上向き',
-  }
-  return map[direction]
-}

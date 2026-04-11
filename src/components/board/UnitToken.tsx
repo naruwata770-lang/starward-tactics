@@ -74,27 +74,13 @@ import {
   UNIT_LABELS,
 } from '../../constants/game'
 import { useDrag } from '../../hooks/useDrag'
-import type { Direction, StarburstLevel, Unit } from '../../types/board'
+import type { StarburstLevel, Unit } from '../../types/board'
+import { directionToVector } from './directionGeometry'
 
 // 円中心からラベル上端までの距離。constants の UNIT_RADIUS と UNIT_LABEL_GAP の和。
 const LABEL_OFFSET_Y = UNIT_RADIUS + UNIT_LABEL_GAP
 // ピル型の角丸半径 (高さの半分)
 const LABEL_CORNER_RADIUS = UNIT_LABEL_HEIGHT / 2
-
-/**
- * Direction (度数) を SVG 座標系の単位ベクトル (dx, dy) に変換する。
- *
- * 約束:
- * - 0° = 上
- * - 時計回りに増える (90° = 右、180° = 下、270° = 左)
- * - SVG の y 軸は下向きなので、dy は cos の符号を反転して扱う
- *
- * 戻り値: (sin θ, -cos θ) — `(0,-1)` が上向き、`(1,0)` が右向き。
- */
-function directionToVector(direction: Direction): { dx: number; dy: number } {
-  const rad = (direction * Math.PI) / 180
-  return { dx: Math.sin(rad), dy: -Math.cos(rad) }
-}
 
 /**
  * StarburstLevel から「点灯セグメント数 (0..2)」を返す。

@@ -423,24 +423,53 @@ describe('useDrag', () => {
 
       function Host() {
         const board = useBoard()
+        const { setSelectedUnit } = useSelection()
         return (
-          <svg
-            width={720}
-            height={720}
-            viewBox="0 0 720 720"
-            data-testid="memo-svg-root"
-          >
-            {UNIT_IDS.map((id) => (
-              <MiniUnit key={id} unit={board.units[id]} />
-            ))}
-          </svg>
+          <>
+            {/*
+              テスト用: baseline 取得前に「対象ユニットを事前に選択」する。
+              理由は it ブロックのコメント参照。
+            */}
+            <button
+              type="button"
+              data-testid="memo-select-ally"
+              onClick={() => setSelectedUnit('ally')}
+            >
+              select ally
+            </button>
+            <svg
+              width={720}
+              height={720}
+              viewBox="0 0 720 720"
+              data-testid="memo-svg-root"
+            >
+              {UNIT_IDS.map((id) => (
+                <MiniUnit key={id} unit={board.units[id]} />
+              ))}
+            </svg>
+          </>
         )
       }
 
       return { commitCounts, Host }
     }
 
-    it('drags self → only self commits, others stay at baseline (memo bailout effective)', () => {
+    it('drags ally → only ally commits, others stay at baseline (memo bailout effective)', () => {
+      // ally をドラッグ対象にする理由 (レビュー指摘反映):
+      // BoardProvider の初期 selectedUnit は 'self' なので、self を drag する
+      // と「pointerdown → setSelectedUnit('self')」が同値 setState の bailout
+      // に依存することになり、将来 initial selection が変わると false negative
+      // で他 3 機の commit が観測されてしまう。
+      // ally を drag するパスに変えれば隣人検証が初期選択ロジックに依存しない。
+      //
+      // ただし useDrag は内部で useSelection() を呼んでおり、UIContext.value が
+      // 変わると useContext 経由で MiniUnit が memo を迂回して強制再 render
+      // される。drag 中に selectedUnit を変えると 4 機すべてに 1 回 ずつ余計な
+      // commit が走ってしまう。
+      // → baseline を取る前に setSelectedUnit('ally') を済ませて、その分の
+      //   再 render を baseline に取り込んでしまう。これで以降 onPointerDown
+      //   の setSelectedUnit('ally') が同値 bailout で UIContext を触らず、
+      //   隣人 3 機は厳密に baseline 据え置きで検証できる。
       const { commitCounts, Host } = makeMemoHarness()
       render(
         <BoardProvider>
@@ -448,13 +477,15 @@ describe('useDrag', () => {
         </BoardProvider>,
       )
 
-      // baseline: 初期描画後の commit 回数。
-      // StrictMode の二重発火や React 18 の concurrent render に依存しない
-      // よう、絶対値ではなく差分で検証するためのスナップショット。
+      // 事前選択: ally を選んでおく (UIContext.value をここで変えてしまう)
+      fireEvent.click(screen.getByTestId('memo-select-ally'))
+
+      // baseline: 事前選択後の commit 回数。
+      // StrictMode の二重発火や事前選択の reflow も含めて baseline に取り込み、
+      // 絶対値ではなく差分で検証することで環境に依存しない。
       const baseline = { ...commitCounts }
 
-      // self をドラッグ
-      const target = screen.getByTestId('mini-self')
+      const target = screen.getByTestId('mini-ally')
       fireEvent.pointerDown(target, {
         pointerId: 1,
         clientX: 200,
@@ -473,13 +504,13 @@ describe('useDrag', () => {
         clientY: 240,
       })
 
-      // self は少なくとも 1 回は commit されている (MOVE_UNIT で参照が変わる)
-      expect(commitCounts.self - baseline.self).toBeGreaterThanOrEqual(1)
+      // ally は少なくとも 1 回は commit されている (MOVE_UNIT で参照が変わる)
+      expect(commitCounts.ally - baseline.ally).toBeGreaterThanOrEqual(1)
 
       // 他 3 機は baseline と同じ (memo の参照同一性 bailout が効いている)。
       // ここが 0 でなくなったら useDrag 内部に context 購読が戻った疑いがあり、
       // memo 境界が破綻している。
-      expect(commitCounts.ally - baseline.ally).toBe(0)
+      expect(commitCounts.self - baseline.self).toBe(0)
       expect(commitCounts.enemy1 - baseline.enemy1).toBe(0)
       expect(commitCounts.enemy2 - baseline.enemy2).toBe(0)
     })
