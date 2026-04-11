@@ -1,0 +1,119 @@
+/**
+ * CoreTypeSelector のコンポーネントテスト。
+ *
+ * 目的:
+ * - 各ボタンに 1 文字 id (F/S/M/D/B/C) と補助ラベル (格闘 / 射撃 / ...) が
+ *   常時表示されること (#27 で iteration-1 の「伝わらない」失敗として高で挙がった
+ *   legend 追加が回帰しないことを担保する)。
+ * - 「ボタンクリック → SET_CORE_TYPE が dispatch され、選択中 unit の coreType が
+ *   更新される」配線が崩れていないこと。reducer 自体は boardReducer.test.ts で
+ *   検証済みなので、ここでは UI からの配線ミス (unitId 取り違え / action type の
+ *   typo / props 経路の崩れ) を拾う。
+ */
+
+import { cleanup, render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { afterEach, describe, expect, it } from 'vitest'
+
+import { CoreTypeSelector } from '../components/inspector/CoreTypeSelector'
+import { CORE_TYPES } from '../constants/game'
+import { useBoard } from '../state/BoardContext'
+import { BoardProvider } from '../state/BoardProvider'
+
+function CoreProbe() {
+  const board = useBoard()
+  return <span data-testid="self-core">{board.units.self.coreType}</span>
+}
+
+function renderCoreTypeSelector() {
+  return render(
+    <BoardProvider>
+      <CoreProbe />
+      <CoreTypeSelector unitId="self" current="B" />
+    </BoardProvider>,
+  )
+}
+
+/**
+ * label テキストから対応する <button> 要素を取得するヘルパー。
+ *
+ * `getByRole('button', { name: ... })` は accessible name の連結方式
+ * (子テキストを空白区切りにするか) がブラウザ / 環境依存になるため、ここでは
+ * 補助ラベル (「格闘」など) を `getByText` で直接拾い、`closest('button')` で
+ * 親ボタンに遡る方式を採る。実装依存の連結に依存しないので、将来 CORE_TYPES の
+ * label に正規表現メタ文字が混入しても壊れない (review #27 で議論)。
+ */
+function getButtonByLabel(label: string): HTMLButtonElement {
+  const button = screen.getByText(label).closest('button')
+  if (!button) {
+    throw new Error(`label "${label}" の親 button が見つからない`)
+  }
+  return button as HTMLButtonElement
+}
+
+describe('CoreTypeSelector', () => {
+  afterEach(() => {
+    cleanup()
+  })
+
+  it('renders all six core types with both id and label as visible legend', () => {
+    renderCoreTypeSelector()
+    const group = screen.getByRole('group', { name: 'コア種別' })
+
+    // 全 6 種について「1 文字 id」と「補助ラベル」が両方ともグループ内に
+    // 可視テキストとして存在することを担保する。過去は title 属性 (hover tooltip)
+    // のみで legend が出なかった (#27)。
+    for (const { id, label } of CORE_TYPES) {
+      expect(within(group).getByText(id)).toBeTruthy()
+      expect(within(group).getByText(label)).toBeTruthy()
+    }
+  })
+
+  it('exposes accessible name combining id and label (no aria-label override)', () => {
+    renderCoreTypeSelector()
+
+    // PR #27 review (2 周目) で議論された契約: ボタンの accessible name は
+    // 可視テキスト由来で計算され、`aria-label` を被せない (First Rule of ARIA Use)。
+    // 上の「visible legend」テストは可視テキストの存在しか見ておらず、
+    // 将来 `aria-hidden` を追加したり DOM 構造を flatten したりすると
+    // 読み上げ名が壊れても検知できない。ここでは accessible name 自体を直接
+    // 検証することで、契約をテストレイヤーに固定する。
+    //
+    // 連結方式 (空白区切り or 無区切り) はブラウザ / happy-dom 実装依存なので、
+    // predicate で「id と label の両方を含む」だけを確認する。これにより
+    // 連結方式が変わっても回帰せず、CORE_TYPES.label に正規表現メタ文字が
+    // 混入しても壊れない。
+    for (const { id, label } of CORE_TYPES) {
+      const button = screen.getByRole('button', {
+        name: (name) => name.includes(id) && name.includes(label),
+      })
+      expect(button).toBeTruthy()
+    }
+  })
+
+  it('marks the current core as pressed', () => {
+    renderCoreTypeSelector()
+    // 注: <CoreTypeSelector current="B" /> と props で直接渡しているので、
+    // Provider の self.coreType ではなく props の current を見ている (component は
+    // current === id で isSelected を決める)。Probe 経由の Provider state は
+    // 次のテスト (dispatch 配線) で確認する。
+    const balanced = getButtonByLabel('バランス')
+    expect(balanced.getAttribute('aria-pressed')).toBe('true')
+
+    const fight = getButtonByLabel('格闘')
+    expect(fight.getAttribute('aria-pressed')).toBe('false')
+  })
+
+  it('dispatches SET_CORE_TYPE and updates state when clicked', async () => {
+    const user = userEvent.setup()
+    renderCoreTypeSelector()
+
+    expect(screen.getByTestId('self-core').textContent).toBe('B')
+
+    await user.click(getButtonByLabel('格闘'))
+
+    // dispatch → reducer → BoardProvider の present 更新 → Probe の再 render
+    // (CoreTypeSelector 自身は props 固定なので isSelected 表示は B のまま動かない)
+    expect(screen.getByTestId('self-core').textContent).toBe('F')
+  })
+})
