@@ -29,8 +29,8 @@
  * - 最外 <g>: `role="group"` + `aria-label="方向ピッカー"`
  * - 各ボタン <g>: `role="button"` + `aria-label="<向き>に変更"` + `aria-pressed`
  * - SVG <g> でも HTML button と等価のキーボード操作を提供:
- *   `tabIndex={0}` + `focusable="true"` (Edge legacy 系の保険) + Enter/Space で
- *   `preventDefault()` してから dispatch
+ *   `tabIndex={0}` + `onKeyDown` で Enter/Space を `preventDefault()` してから
+ *   dispatch する。モダンブラウザでは `<g tabIndex={0}>` がフォーカスを受ける
  * - フォーカスリングは `<g>` のブラウザデフォルトに任せず、focus 状態用の
  *   `<circle>` を React state ベースで明示的に描画 (CSS の :focus-visible は
  *   PNG 出力対象外なので使わず、SVG 属性ベースで完結させる)

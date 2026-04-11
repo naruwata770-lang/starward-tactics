@@ -470,6 +470,13 @@ describe('useDrag', () => {
       //   再 render を baseline に取り込んでしまう。これで以降 onPointerDown
       //   の setSelectedUnit('ally') が同値 bailout で UIContext を触らず、
       //   隣人 3 機は厳密に baseline 据え置きで検証できる。
+      //
+      // 検知範囲の限界 (将来の reviewer への申し送り):
+      // このテストが落ちる/通る境界は厳密には「useDrag 内部に **drag 中に値が
+      // 変化する** context 購読が戻った場合」に限られる。`useSelection` のように
+      // drag 中は同値 bailout が効く購読の回帰は素通しする (false negative)。
+      // 当初の本命 (`BoardPresentContext` を `useBoard()` で購読する回帰) は
+      // drag 中に present が毎フレーム更新されるので確実に検知できる。
       const { commitCounts, Host } = makeMemoHarness()
       render(
         <BoardProvider>

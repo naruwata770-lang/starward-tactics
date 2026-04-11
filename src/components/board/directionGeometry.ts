@@ -18,12 +18,9 @@
 
 import type { Direction } from '../../types/board'
 
-export interface DirectionVector {
-  dx: number
-  dy: number
-}
-
-export function directionToVector(direction: Direction): DirectionVector {
+export function directionToVector(
+  direction: Direction,
+): { dx: number; dy: number } {
   const rad = (direction * Math.PI) / 180
   return { dx: Math.sin(rad), dy: -Math.cos(rad) }
 }
