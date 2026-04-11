@@ -23,6 +23,7 @@
 - ブランチ・PR・merge・コミットメッセージ・事前計画フロー → `.claude/rules/git-workflow.md`
 - コード規約 (コメント・定数集約・責務分離・SVG 制約) → `.claude/rules/code-conventions.md`
 - テスト方針 (`__tests__` 配置・stubGlobal・Probe パターン) → `.claude/rules/testing.md`
+- 実装原則 (Credo 4 原則: Core First / Wire Before Decorate / No Dead Code / Spec vs Evidence) → `.claude/rules/credo.md`
 - State 管理 (Context 4 分割・withHistory・hooks) → `src/state/BoardContext.ts` 冒頭コメント
 - 3 者並列レビュー (Claude / Gemini / Codex) → `/review` (`.claude/skills/review/`)
 - セカンドオピニオン (Gemini + Codex) → `/ask-others` ※ローカル開発環境のみ (Gemini CLI + Codex CLI 必須)
