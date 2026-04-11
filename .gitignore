@@ -26,7 +26,10 @@ dist-ssr
 # Temp files (e.g. ask-others / review skill prompts)
 .tmp/
 
-# Claude Code のローカル設定（skills など）
-# 公開リポジトリのため、個人のレビュー基準やプロジェクト固有でない設定は含めない方針。
-# プロジェクト固有のルールは README.md / CONTRIBUTING.md に書く。
-.claude/
+# Claude Code 設定の責務分離:
+# - .claude/rules/ と .claude/skills/ は「プロジェクト共有資産」として追跡する。
+#   CLAUDE.md からポインタで参照しており、Claude Code GitHub 連携 (スマホアプリ
+#   経由のリモート起動など) でも読めるようにリポジトリに含める必要がある。
+# - 個人横断の設定は ~/.claude/ (ユーザーレベル) に置く。
+# - このマシン固有の一時オーバーライドだけ settings.local.json で除外する。
+.claude/settings.local.json
