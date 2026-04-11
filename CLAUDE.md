@@ -1,0 +1,38 @@
+# tacticsboard — Claude 運用ルート
+
+「星の翼 (Starward Tactics) 戦術ボード」開発用エージェント指示。本体は索引で、詳細は分割ファイルへのポインタを辿る。
+
+## 必須コマンド (push 前に全通過)
+
+- `npm run lint`
+- `npm run typecheck`
+- `npm run test`
+- `npm run build`
+
+1 つでも fail したら根本原因を直してから push。`--no-verify` 禁止。
+
+## 禁止事項
+
+- **main への直 push 禁止** (文書修正でも PR 経由) → `.claude/rules/git-workflow.md`
+- **既存コミットへの amend 禁止** (新コミットを積む) → `.claude/rules/git-workflow.md`
+- **`window.X = vi.fn()` の直接代入禁止** (`vi.stubGlobal` を使う) → `.claude/rules/testing.md`
+- **後方互換シム / 廃止コメントを残さない** (削除すべきコードは完全削除) → `.claude/rules/code-conventions.md`
+
+## ルーティング
+
+- ブランチ・PR・merge・コミットメッセージ・事前計画フロー → `.claude/rules/git-workflow.md`
+- コード規約 (コメント・定数集約・責務分離・SVG 制約) → `.claude/rules/code-conventions.md`
+- テスト方針 (`__tests__` 配置・stubGlobal・Probe パターン) → `.claude/rules/testing.md`
+- State 管理 (Context 4 分割・withHistory・hooks) → `src/state/BoardContext.ts` 冒頭コメント
+- 3 者並列レビュー (Claude / Gemini / Codex) → `/review` (`.claude/skills/review/`)
+- セカンドオピニオン (Gemini + Codex) → `/ask-others`
+- 大きめ実装の事前計画 → `.tmp/<issue番号>-<topic>-plan.md` に書いてから `/ask-others`
+
+## 環境
+
+- Node: `.nvmrc` 参照
+- Shell: Windows 11 + Git Bash (パス区切りは `/`)
+
+## Phase 進捗
+
+`gh issue list` で確認 (#1〜#11 が Phase 1〜10、#16 が本ファイル)。
