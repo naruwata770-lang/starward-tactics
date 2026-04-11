@@ -6,7 +6,7 @@
 
 `feat/<issue番号>-<kebab名>`
 
-例: `feat/6-url-share-toolbar`, `feat/16-claude-md`
+実例 (Phase 5 の URL 共有 + ツールバー実装): `feat/6-url-share-toolbar`
 
 main からブランチを切って作業し、PR 経由でマージする。**main への直 push は禁止** (文書修正でも PR 経由)。
 
@@ -46,7 +46,7 @@ EOF
   - 例: `Phase 5: URL 共有 + 最小ツールバー (Undo/Redo/Reset) を実装`
   - 例: `レビュー指摘を反映: race condition / encode 防御 / popstate / モック汚染`
 - 本文に「**なぜ**」を残す (「何を」は diff で分かる)
-- 末尾に `Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>` を付与
+- 末尾に `Co-Authored-By: Claude <noreply@anthropic.com>` を付与 (具体的なモデル名は固定しない。モデル更新時の陳腐化を避けるため)
 
 ### amend ではなく新コミットを積む
 
@@ -63,6 +63,8 @@ EOF
 3. 両者推奨の改善は計画書に反映してから実装に入る
 
 計画書の改訂履歴は残さなくて良い (採用結果が計画書、議論ログは PR 本文に書く)。
+
+⚠️ `/ask-others` は Gemini CLI と Codex CLI の両方が認証済みでインストールされている **ローカル開発環境専用** のフロー。Claude Code GitHub 連携 (スマホアプリ経由のリモート起動など) では CLI が利用できないため、このスキルは動かない。リモート環境ではセカンドオピニオンを省略するか、PR コメント経由で追加レビューを依頼するなどの代替策に切り替える。
 
 ## レビューサイクル
 

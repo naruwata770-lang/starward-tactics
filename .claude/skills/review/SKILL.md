@@ -184,13 +184,11 @@ cat .tmp/review-prompt.txt | codex exec --sandbox read-only -
 
 **重要度「高」と[共通]の指摘が0件の場合:**
 - レビュー結果を PR にコメントとして投稿するか確認
-- マージして良いか確認（マージ方式はリポジトリのデフォルトに従う。merge commit / squash / rebase はリポジトリ設定や運用に合わせる）
+- マージして良いか確認（**このプロジェクトは merge commit 方式で固定**。詳細は `.claude/rules/git-workflow.md` 参照）
 
 ```bash
 gh pr comment <PR番号> --body "レビュー結果コメント"
-gh pr merge <PR番号> --merge      # merge commit
-gh pr merge <PR番号> --squash     # squash merge
-gh pr merge <PR番号> --rebase     # rebase merge
+gh pr merge <PR番号> --merge --delete-branch
 ```
 
 **重要度「高」と[共通]の指摘がある場合:**

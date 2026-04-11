@@ -15,7 +15,7 @@
 
 - **main への直 push 禁止** (文書修正でも PR 経由) → `.claude/rules/git-workflow.md`
 - **既存コミットへの amend 禁止** (新コミットを積む) → `.claude/rules/git-workflow.md`
-- **`window.X = vi.fn()` の直接代入禁止** (`vi.stubGlobal` を使う) → `.claude/rules/testing.md`
+- **`window` / `globalThis` の直接モック禁止** (`vi.stubGlobal` を使う) → `.claude/rules/testing.md`
 - **後方互換シム / 廃止コメントを残さない** (削除すべきコードは完全削除) → `.claude/rules/code-conventions.md`
 
 ## ルーティング
@@ -25,7 +25,7 @@
 - テスト方針 (`__tests__` 配置・stubGlobal・Probe パターン) → `.claude/rules/testing.md`
 - State 管理 (Context 4 分割・withHistory・hooks) → `src/state/BoardContext.ts` 冒頭コメント
 - 3 者並列レビュー (Claude / Gemini / Codex) → `/review` (`.claude/skills/review/`)
-- セカンドオピニオン (Gemini + Codex) → `/ask-others`
+- セカンドオピニオン (Gemini + Codex) → `/ask-others` ※ローカル開発環境のみ (Gemini CLI + Codex CLI 必須)
 - 大きめ実装の事前計画 → `.tmp/<issue番号>-<topic>-plan.md` に書いてから `/ask-others`
 
 ## 環境
@@ -35,4 +35,4 @@
 
 ## Phase 進捗
 
-`gh issue list` で確認 (#1〜#11 が Phase 1〜10、#16 が本ファイル)。
+`gh issue list` で確認 (Phase 番号と Issue 番号の対応を含む)。

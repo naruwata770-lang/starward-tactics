@@ -57,6 +57,8 @@ render(
 
 実例は `src/__tests__/Toolbar.test.tsx` を参照。Phase 4 で確立して以降このパターンを踏襲している。
 
+`Probe` コンポーネントは **使用するテストファイル内でローカル定義** する (本体の `src/components/` には置かない)。テスト専用の検証用部品なので、本体ツリーを汚染しないため。
+
 ## ボタン取得ヘルパー
 
 `disabled` プロパティを型安全に読みたいときは `HTMLButtonElement` にキャストするヘルパーを各テストファイルに用意する (`Toolbar.test.tsx` の `getButton` 参照)。
