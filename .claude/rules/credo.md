@@ -9,14 +9,14 @@
 - **問い**: 「この変更で core flow (駒を置く → 編成を共有する) は何分で触れるようになるか？」
 - **適用しない例**: クリティカルなバグ修正・回帰テスト追加
 - **証拠**: コア操作 (`MOVE_UNIT` / URL 共有 / Undo) のテスト結果が緑
-- **✅ Positive**: Phase 5 で URL 共有を入れる前に Toolbar の Undo/Redo/Reset を仕上げた
+- **✅ Positive**: Phase 5 で Toolbar のアイコン装飾を後回しにして、先に URL 共有 (core flow 終端) の最小実装を通した
 - **❌ Negative**: Inspector の追加属性ピッカーを 5 種類同時に増やそうとして、共有 URL のスキーマ更新が後回しになる
 
 ## 2. Wire Before You Decorate
 
 - **問い**: 「この部品は単体ではなく vertical slice として通っているか？」
 - **適用しない例**: 純粋なリファクタ・コメント整備
-- **証拠**: `npm run dev` でその機能が end-to-end で動く
+- **証拠**: 品質ゲート (lint / typecheck / test / build) 全通過 + `npm run dev` でその機能が end-to-end で動く
 - **✅ Positive**: Phase 4 で InspectorPanel を作った時、CoreType / Cost / LockTarget を Provider 経由で reducer まで配線してから見た目を整えた
 - **❌ Negative**: StarburstGauge の見た目だけ作って、選択 unit 変更時の再描画ロジックを後回しにする
 
@@ -30,11 +30,9 @@
 
 ## 4. Spec is the default, but user evidence overrides spec
 
-(旧 "The Spec Is Law" を緩和した版。Codex のセカンドオピニオン提案を反映)
-
-- **問い**: 「`.tmp/<phaseN>-plan.md` の検証シナリオを満たしているか？ 満たしているのに UX が悪い場合、シナリオの方を更新する用意はあるか？」
+- **問い**: 「`.tmp/<phaseN>-plan.md` または `.tmp/<issue番号>-<topic>-plan.md` の検証シナリオを満たしているか？ 満たしているのに UX が悪い場合、シナリオの方を更新する用意はあるか？」
 - **適用しない例**: シナリオに明示されたエッジケースを優先する場合
-- **証拠**: シナリオと uxaudit / 手動触りの結果が一致
+- **証拠**: シナリオと手動触り (後続 Issue #18 γ1 で導入予定の uxaudit があれば併用) の結果が一致
 - **✅ Positive**: Phase 5 レビューで race condition を発見し、シナリオを「popstate で pending デバウンスが cancel される」に更新してから直した
 - **❌ Negative**: 「シナリオには書いてないから対応しない」と AI が判断する
 
