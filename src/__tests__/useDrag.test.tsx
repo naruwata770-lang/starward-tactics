@@ -15,8 +15,10 @@
  */
 
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { memo, useLayoutEffect } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { UNIT_IDS } from '../constants/game'
 import { useDrag } from '../hooks/useDrag'
 import {
   useBoard,
@@ -24,7 +26,7 @@ import {
   useSelection,
 } from '../state/BoardContext'
 import { BoardProvider } from '../state/BoardProvider'
-import type { UnitId } from '../types/board'
+import type { Unit, UnitId } from '../types/board'
 import { setupSvgPointerStubs } from './helpers/svgStubs'
 
 /**
@@ -359,6 +361,165 @@ describe('useDrag', () => {
 
       // 2 本目の pointerdown は完全無視されているはず → 履歴は 1 件
       expect(screen.getByTestId('past-len').textContent).toBe('1')
+    })
+  })
+
+  /**
+   * memo 境界の回帰検知テスト (Issue #29 の 1 番).
+   *
+   * 背景:
+   * PR #25 で `useDrag` が `useBoard()` 経由で BoardPresentContext を購読する
+   * 形になっていたとき、`useContext` は `React.memo` を迂回するため、
+   * UnitToken を memo でラップしていても全機が毎フレーム再 render されていた。
+   * `useDrag` を「unit を引数で受け取る」形に変えてこれを直したが、既存の
+   * `DraggableHarness` テストは memo 境界を経由していないため、将来 useDrag
+   * 内に context 購読がうっかり戻ってもこのテストでは検知できない。
+   *
+   * 検知方法:
+   * - `memo` でラップしたミニ UnitToken を 4 機並べる
+   * - `useLayoutEffect` で commit 回数を数える
+   *   (render body 内 ++ は speculative render で増えるので避ける、effect は
+   *    実際に commit された時だけ走るので memo bailout の効果を直接観測できる)
+   * - 初期描画後の値を baseline として snapshot
+   * - self をドラッグ → self だけ commit が増え、他 3 機は baseline 据え置き
+   *   であることを assert
+   *
+   * これで「`useDrag` 内部に `useContext(BoardPresentContext)` がうっかり
+   * 戻ったら他 3 機も commit が走る」という回帰が落ちるようになる。
+   */
+  describe('memo boundary regression (Issue #29 1番)', () => {
+    function makeMemoHarness() {
+      const commitCounts: Record<UnitId, number> = {
+        self: 0,
+        ally: 0,
+        enemy1: 0,
+        enemy2: 0,
+      }
+
+      // 関数式で memo をかけることで、テストごとに別の component 識別子が
+      // 作られ、テスト間で commit counts が漏れない。
+      const MiniUnit = memo(function MiniUnit({ unit }: { unit: Unit }) {
+        const handlers = useDrag({ unit })
+        // useLayoutEffect: commit 回数を数える
+        // 注: deps を渡さない (毎 commit ごとに発火する) ことで、useDrag の
+        //     hook 参照が変わるたびに増える
+        useLayoutEffect(() => {
+          commitCounts[unit.id] += 1
+        })
+        return (
+          <g
+            data-testid={`mini-${unit.id}`}
+            onPointerDown={handlers.onPointerDown}
+            onPointerMove={handlers.onPointerMove}
+            onPointerUp={handlers.onPointerUp}
+            onPointerCancel={handlers.onPointerCancel}
+            onLostPointerCapture={handlers.onLostPointerCapture}
+            style={{ touchAction: 'none' }}
+          >
+            <circle cx={unit.x} cy={unit.y} r={30} />
+          </g>
+        )
+      })
+
+      function Host() {
+        const board = useBoard()
+        const { setSelectedUnit } = useSelection()
+        return (
+          <>
+            {/*
+              テスト用: baseline 取得前に「対象ユニットを事前に選択」する。
+              理由は it ブロックのコメント参照。
+            */}
+            <button
+              type="button"
+              data-testid="memo-select-ally"
+              onClick={() => setSelectedUnit('ally')}
+            >
+              select ally
+            </button>
+            <svg
+              width={720}
+              height={720}
+              viewBox="0 0 720 720"
+              data-testid="memo-svg-root"
+            >
+              {UNIT_IDS.map((id) => (
+                <MiniUnit key={id} unit={board.units[id]} />
+              ))}
+            </svg>
+          </>
+        )
+      }
+
+      return { commitCounts, Host }
+    }
+
+    it('drags ally → only ally commits, others stay at baseline (memo bailout effective)', () => {
+      // ally をドラッグ対象にする理由 (レビュー指摘反映):
+      // BoardProvider の初期 selectedUnit は 'self' なので、self を drag する
+      // と「pointerdown → setSelectedUnit('self')」が同値 setState の bailout
+      // に依存することになり、将来 initial selection が変わると false negative
+      // で他 3 機の commit が観測されてしまう。
+      // ally を drag するパスに変えれば隣人検証が初期選択ロジックに依存しない。
+      //
+      // ただし useDrag は内部で useSelection() を呼んでおり、UIContext.value が
+      // 変わると useContext 経由で MiniUnit が memo を迂回して強制再 render
+      // される。drag 中に selectedUnit を変えると 4 機すべてに 1 回 ずつ余計な
+      // commit が走ってしまう。
+      // → baseline を取る前に setSelectedUnit('ally') を済ませて、その分の
+      //   再 render を baseline に取り込んでしまう。これで以降 onPointerDown
+      //   の setSelectedUnit('ally') が同値 bailout で UIContext を触らず、
+      //   隣人 3 機は厳密に baseline 据え置きで検証できる。
+      //
+      // 検知範囲の限界 (将来の reviewer への申し送り):
+      // このテストが落ちる/通る境界は厳密には「useDrag 内部に **drag 中に値が
+      // 変化する** context 購読が戻った場合」に限られる。`useSelection` のように
+      // drag 中は同値 bailout が効く購読の回帰は素通しする (false negative)。
+      // 当初の本命 (`BoardPresentContext` を `useBoard()` で購読する回帰) は
+      // drag 中に present が毎フレーム更新されるので確実に検知できる。
+      const { commitCounts, Host } = makeMemoHarness()
+      render(
+        <BoardProvider>
+          <Host />
+        </BoardProvider>,
+      )
+
+      // 事前選択: ally を選んでおく (UIContext.value をここで変えてしまう)
+      fireEvent.click(screen.getByTestId('memo-select-ally'))
+
+      // baseline: 事前選択後の commit 回数。
+      // StrictMode の二重発火や事前選択の reflow も含めて baseline に取り込み、
+      // 絶対値ではなく差分で検証することで環境に依存しない。
+      const baseline = { ...commitCounts }
+
+      const target = screen.getByTestId('mini-ally')
+      fireEvent.pointerDown(target, {
+        pointerId: 1,
+        clientX: 200,
+        clientY: 200,
+      })
+      for (let i = 0; i < 5; i++) {
+        fireEvent.pointerMove(target, {
+          pointerId: 1,
+          clientX: 200 + i * 10,
+          clientY: 200 + i * 10,
+        })
+      }
+      fireEvent.pointerUp(target, {
+        pointerId: 1,
+        clientX: 240,
+        clientY: 240,
+      })
+
+      // ally は少なくとも 1 回は commit されている (MOVE_UNIT で参照が変わる)
+      expect(commitCounts.ally - baseline.ally).toBeGreaterThanOrEqual(1)
+
+      // 他 3 機は baseline と同じ (memo の参照同一性 bailout が効いている)。
+      // ここが 0 でなくなったら useDrag 内部に context 購読が戻った疑いがあり、
+      // memo 境界が破綻している。
+      expect(commitCounts.self - baseline.self).toBe(0)
+      expect(commitCounts.enemy1 - baseline.enemy1).toBe(0)
+      expect(commitCounts.enemy2 - baseline.enemy2).toBe(0)
     })
   })
 })

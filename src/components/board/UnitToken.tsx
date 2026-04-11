@@ -19,8 +19,16 @@
  *   変更ユニットだけ新オブジェクトを作るので、他ユニットの memo は参照同一で
  *   即スキップされる
  *
- * Phase 7 以降の予定:
- * - `unit.direction` を反映した方向インジケータ (Phase 7)
+ * Phase 7 (Issue #8) で追加した責務:
+ * - `unit.direction` を反映した方向矢印 (line + 三角 polygon)
+ *   - 0° = 上、時計回り 45° 刻み (8 方向)
+ *   - 寸法は constants/board.ts の UNIT_DIRECTION_* に集約
+ *   - 矢印は円本体の bounding box 内に収まる幾何不変条件を満たす
+ *     (constants/board.ts の UNIT_DIRECTION_LINE_OUTER のコメント参照)
+ *   - pointerEvents="none" を矢印 <g> に付与し、矢印越しのドラッグ判定が
+ *     最外 <g> の onPointerDown に届くようにしている
+ *
+ * Phase 8 以降の予定:
  * - ロックオン線 (Phase 8)
  *
  * 重要: SVG 内の色は fill/stroke 属性で指定する (Tailwind class 禁止)。
@@ -37,6 +45,12 @@ import {
   UNIT_COST_FONT_SIZE,
   UNIT_COST_TEXT_COLOR,
   UNIT_COST_Y_NUDGE,
+  UNIT_DIRECTION_ARROW_HALF_WIDTH,
+  UNIT_DIRECTION_ARROW_HEAD_LENGTH,
+  UNIT_DIRECTION_COLOR,
+  UNIT_DIRECTION_LINE_INNER,
+  UNIT_DIRECTION_LINE_OUTER,
+  UNIT_DIRECTION_LINE_WIDTH,
   UNIT_LABEL_BG_COLOR,
   UNIT_LABEL_FONT_SIZE,
   UNIT_LABEL_GAP,
@@ -61,6 +75,7 @@ import {
 } from '../../constants/game'
 import { useDrag } from '../../hooks/useDrag'
 import type { StarburstLevel, Unit } from '../../types/board'
+import { directionToVector } from './directionGeometry'
 
 // 円中心からラベル上端までの距離。constants の UNIT_RADIUS と UNIT_LABEL_GAP の和。
 const LABEL_OFFSET_Y = UNIT_RADIUS + UNIT_LABEL_GAP
@@ -103,6 +118,29 @@ export const UnitToken = memo(function UnitToken({ unit }: UnitTokenProps) {
   const sbTotalWidth = UNIT_SB_BAR_WIDTH * 2 + UNIT_SB_BAR_GAP
   const sbLeftX = unit.x - sbTotalWidth / 2
 
+  // 方向矢印の幾何計算 (Phase 7):
+  // - 始点: 円中心から (dx, dy) 方向に UNIT_DIRECTION_LINE_INNER だけ進んだ点
+  // - 終点 = 三角形の付け根: 同方向に UNIT_DIRECTION_LINE_OUTER だけ進んだ点
+  // - 三角形の先端 (tip): 終点からさらに UNIT_DIRECTION_ARROW_HEAD_LENGTH 進んだ点
+  // - 三角形の左右 base: 終点から direction に直交する方向 (-dy, dx) と (dy, -dx)
+  //   に UNIT_DIRECTION_ARROW_HALF_WIDTH ずつ進んだ点
+  const { dx: dirDx, dy: dirDy } = directionToVector(unit.direction)
+  const arrowStartX = unit.x + dirDx * UNIT_DIRECTION_LINE_INNER
+  const arrowStartY = unit.y + dirDy * UNIT_DIRECTION_LINE_INNER
+  const arrowBaseX = unit.x + dirDx * UNIT_DIRECTION_LINE_OUTER
+  const arrowBaseY = unit.y + dirDy * UNIT_DIRECTION_LINE_OUTER
+  const arrowTipX =
+    unit.x + dirDx * (UNIT_DIRECTION_LINE_OUTER + UNIT_DIRECTION_ARROW_HEAD_LENGTH)
+  const arrowTipY =
+    unit.y + dirDy * (UNIT_DIRECTION_LINE_OUTER + UNIT_DIRECTION_ARROW_HEAD_LENGTH)
+  // direction に直交する単位ベクトル (左 base 用)。SVG y 反転を考慮済み
+  const perpDx = -dirDy
+  const perpDy = dirDx
+  const arrowLeftX = arrowBaseX + perpDx * UNIT_DIRECTION_ARROW_HALF_WIDTH
+  const arrowLeftY = arrowBaseY + perpDy * UNIT_DIRECTION_ARROW_HALF_WIDTH
+  const arrowRightX = arrowBaseX - perpDx * UNIT_DIRECTION_ARROW_HALF_WIDTH
+  const arrowRightY = arrowBaseY - perpDy * UNIT_DIRECTION_ARROW_HALF_WIDTH
+
   return (
     <g
       onPointerDown={dragHandlers.onPointerDown}
@@ -124,6 +162,29 @@ export const UnitToken = memo(function UnitToken({ unit }: UnitTokenProps) {
         stroke={UNIT_STROKE_COLOR}
         strokeWidth={UNIT_STROKE_WIDTH}
       />
+
+      {/*
+        方向矢印 (Phase 7).
+        pointerEvents="none" を付ける理由:
+        - 矢印 line/polygon が hit-test を奪うと、矢印領域からドラッグを始めた時に
+          最外 <g> の onPointerDown が拾えず、ドラッグが効かなくなる
+        - 親 <g> の onPointerDown が直接円に届くようにする
+      */}
+      <g pointerEvents="none" aria-hidden="true">
+        <line
+          x1={arrowStartX}
+          y1={arrowStartY}
+          x2={arrowBaseX}
+          y2={arrowBaseY}
+          stroke={UNIT_DIRECTION_COLOR}
+          strokeWidth={UNIT_DIRECTION_LINE_WIDTH}
+          strokeLinecap="round"
+        />
+        <polygon
+          points={`${arrowTipX},${arrowTipY} ${arrowLeftX},${arrowLeftY} ${arrowRightX},${arrowRightY}`}
+          fill={UNIT_DIRECTION_COLOR}
+        />
+      </g>
 
       {/*
         コスト数値: 円中央。font 20 太字白。
