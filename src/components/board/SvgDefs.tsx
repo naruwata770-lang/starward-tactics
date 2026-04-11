@@ -6,13 +6,19 @@
  *
  * 注意: ここで定義する色は SVG 属性ベース (fill/stroke)。Tailwind class は
  * 使わない (Phase 9 の PNG 出力で外部 CSS が解決されないため)。
+ *
+ * memo 化の理由 (Phase 6):
+ * Board が毎ドラッグフレームで再 render されるとき、props のない静的コンポーネント
+ * を memo で囲んでおけば即スキップされる。UnitToken / GridBackground と方針統一。
  */
+
+import { memo } from 'react'
 
 import { GRID_SIZE } from '../../constants/board'
 
 export const GRID_PATTERN_ID = 'tacticsboard-grid'
 
-export function SvgDefs() {
+export const SvgDefs = memo(function SvgDefs() {
   return (
     <defs>
       <pattern
@@ -30,4 +36,4 @@ export function SvgDefs() {
       </pattern>
     </defs>
   )
-}
+})
