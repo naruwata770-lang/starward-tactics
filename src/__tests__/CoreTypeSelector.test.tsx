@@ -69,6 +69,28 @@ describe('CoreTypeSelector', () => {
     }
   })
 
+  it('exposes accessible name combining id and label (no aria-label override)', () => {
+    renderCoreTypeSelector()
+
+    // PR #27 review (2 周目) で議論された契約: ボタンの accessible name は
+    // 可視テキスト由来で計算され、`aria-label` を被せない (First Rule of ARIA Use)。
+    // 上の「visible legend」テストは可視テキストの存在しか見ておらず、
+    // 将来 `aria-hidden` を追加したり DOM 構造を flatten したりすると
+    // 読み上げ名が壊れても検知できない。ここでは accessible name 自体を直接
+    // 検証することで、契約をテストレイヤーに固定する。
+    //
+    // 連結方式 (空白区切り or 無区切り) はブラウザ / happy-dom 実装依存なので、
+    // predicate で「id と label の両方を含む」だけを確認する。これにより
+    // 連結方式が変わっても回帰せず、CORE_TYPES.label に正規表現メタ文字が
+    // 混入しても壊れない。
+    for (const { id, label } of CORE_TYPES) {
+      const button = screen.getByRole('button', {
+        name: (name) => name.includes(id) && name.includes(label),
+      })
+      expect(button).toBeTruthy()
+    }
+  })
+
   it('marks the current core as pressed', () => {
     renderCoreTypeSelector()
     // 注: <CoreTypeSelector current="B" /> と props で直接渡しているので、
