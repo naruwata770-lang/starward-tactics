@@ -15,8 +15,10 @@
  */
 
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { memo, useLayoutEffect } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { UNIT_IDS } from '../constants/game'
 import { useDrag } from '../hooks/useDrag'
 import {
   useBoard,
@@ -24,7 +26,7 @@ import {
   useSelection,
 } from '../state/BoardContext'
 import { BoardProvider } from '../state/BoardProvider'
-import type { UnitId } from '../types/board'
+import type { Unit, UnitId } from '../types/board'
 import { setupSvgPointerStubs } from './helpers/svgStubs'
 
 /**
@@ -359,6 +361,127 @@ describe('useDrag', () => {
 
       // 2 本目の pointerdown は完全無視されているはず → 履歴は 1 件
       expect(screen.getByTestId('past-len').textContent).toBe('1')
+    })
+  })
+
+  /**
+   * memo 境界の回帰検知テスト (Issue #29 の 1 番).
+   *
+   * 背景:
+   * PR #25 で `useDrag` が `useBoard()` 経由で BoardPresentContext を購読する
+   * 形になっていたとき、`useContext` は `React.memo` を迂回するため、
+   * UnitToken を memo でラップしていても全機が毎フレーム再 render されていた。
+   * `useDrag` を「unit を引数で受け取る」形に変えてこれを直したが、既存の
+   * `DraggableHarness` テストは memo 境界を経由していないため、将来 useDrag
+   * 内に context 購読がうっかり戻ってもこのテストでは検知できない。
+   *
+   * 検知方法:
+   * - `memo` でラップしたミニ UnitToken を 4 機並べる
+   * - `useLayoutEffect` で commit 回数を数える
+   *   (render body 内 ++ は speculative render で増えるので避ける、effect は
+   *    実際に commit された時だけ走るので memo bailout の効果を直接観測できる)
+   * - 初期描画後の値を baseline として snapshot
+   * - self をドラッグ → self だけ commit が増え、他 3 機は baseline 据え置き
+   *   であることを assert
+   *
+   * これで「`useDrag` 内部に `useContext(BoardPresentContext)` がうっかり
+   * 戻ったら他 3 機も commit が走る」という回帰が落ちるようになる。
+   */
+  describe('memo boundary regression (Issue #29 1番)', () => {
+    function makeMemoHarness() {
+      const commitCounts: Record<UnitId, number> = {
+        self: 0,
+        ally: 0,
+        enemy1: 0,
+        enemy2: 0,
+      }
+
+      // 関数式で memo をかけることで、テストごとに別の component 識別子が
+      // 作られ、テスト間で commit counts が漏れない。
+      const MiniUnit = memo(function MiniUnit({ unit }: { unit: Unit }) {
+        const handlers = useDrag({ unit })
+        // useLayoutEffect: commit 回数を数える
+        // 注: deps を渡さない (毎 commit ごとに発火する) ことで、useDrag の
+        //     hook 参照が変わるたびに増える
+        useLayoutEffect(() => {
+          commitCounts[unit.id] += 1
+        })
+        return (
+          <g
+            data-testid={`mini-${unit.id}`}
+            onPointerDown={handlers.onPointerDown}
+            onPointerMove={handlers.onPointerMove}
+            onPointerUp={handlers.onPointerUp}
+            onPointerCancel={handlers.onPointerCancel}
+            onLostPointerCapture={handlers.onLostPointerCapture}
+            style={{ touchAction: 'none' }}
+          >
+            <circle cx={unit.x} cy={unit.y} r={30} />
+          </g>
+        )
+      })
+
+      function Host() {
+        const board = useBoard()
+        return (
+          <svg
+            width={720}
+            height={720}
+            viewBox="0 0 720 720"
+            data-testid="memo-svg-root"
+          >
+            {UNIT_IDS.map((id) => (
+              <MiniUnit key={id} unit={board.units[id]} />
+            ))}
+          </svg>
+        )
+      }
+
+      return { commitCounts, Host }
+    }
+
+    it('drags self → only self commits, others stay at baseline (memo bailout effective)', () => {
+      const { commitCounts, Host } = makeMemoHarness()
+      render(
+        <BoardProvider>
+          <Host />
+        </BoardProvider>,
+      )
+
+      // baseline: 初期描画後の commit 回数。
+      // StrictMode の二重発火や React 18 の concurrent render に依存しない
+      // よう、絶対値ではなく差分で検証するためのスナップショット。
+      const baseline = { ...commitCounts }
+
+      // self をドラッグ
+      const target = screen.getByTestId('mini-self')
+      fireEvent.pointerDown(target, {
+        pointerId: 1,
+        clientX: 200,
+        clientY: 200,
+      })
+      for (let i = 0; i < 5; i++) {
+        fireEvent.pointerMove(target, {
+          pointerId: 1,
+          clientX: 200 + i * 10,
+          clientY: 200 + i * 10,
+        })
+      }
+      fireEvent.pointerUp(target, {
+        pointerId: 1,
+        clientX: 240,
+        clientY: 240,
+      })
+
+      // self は少なくとも 1 回は commit されている (MOVE_UNIT で参照が変わる)
+      expect(commitCounts.self - baseline.self).toBeGreaterThanOrEqual(1)
+
+      // 他 3 機は baseline と同じ (memo の参照同一性 bailout が効いている)。
+      // ここが 0 でなくなったら useDrag 内部に context 購読が戻った疑いがあり、
+      // memo 境界が破綻している。
+      expect(commitCounts.ally - baseline.ally).toBe(0)
+      expect(commitCounts.enemy1 - baseline.enemy1).toBe(0)
+      expect(commitCounts.enemy2 - baseline.enemy2).toBe(0)
     })
   })
 })

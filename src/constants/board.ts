@@ -125,3 +125,92 @@ export const UNIT_COORD_Y_MAX =
   UNIT_LABEL_GAP -
   UNIT_LABEL_HEIGHT -
   UNIT_LABEL_STROKE_HALF
+
+// ---- Phase 7: 方向矢印 ----
+
+/**
+ * 方向矢印 line の始点 (円中心からの距離)。
+ * コスト数値 (font 20、円中心) の表示と被らないよう、円の中央付近より外に置く。
+ */
+export const UNIT_DIRECTION_LINE_INNER = 14
+
+/**
+ * 方向矢印 line の終点 = 三角形 (arrow head) の付け根の中心 (円中心からの距離)。
+ *
+ * 不変条件 (Phase 7 計画書 §7):
+ *   UNIT_DIRECTION_LINE_OUTER + UNIT_DIRECTION_ARROW_HEAD_LENGTH
+ *     <= UNIT_RADIUS - UNIT_STROKE_WIDTH / 2
+ * 現在値: 18 + 8 = 26 <= 30 - 1 = 29 ✅
+ *
+ * これを満たす限り、矢印は円本体の bounding box 内に収まり、UNIT_COORD_*_MIN/MAX
+ * の安全範囲を再計算する必要がない。定数を変更したら必ずこの式を再検証すること。
+ */
+export const UNIT_DIRECTION_LINE_OUTER = 18
+
+/** 三角形 (arrow head) の根元から先端までの長さ */
+export const UNIT_DIRECTION_ARROW_HEAD_LENGTH = 8
+
+/** 三角形 (arrow head) の根元の半幅 (= 線の左右に張り出す幅) */
+export const UNIT_DIRECTION_ARROW_HALF_WIDTH = 5
+
+/** 矢印 line の stroke 幅 */
+export const UNIT_DIRECTION_LINE_WIDTH = 2.5
+
+/** 矢印の塗り色。slate-50。中央コスト文字と同色で「ユニット内 UI の白系」を統一 */
+export const UNIT_DIRECTION_COLOR = '#f8fafc'
+
+// ---- Phase 7: 8 方向ピッカー ----
+
+/**
+ * ピッカー円の半径 (Issue #8 で R=74 と指定)。
+ * 選択ユニット中心からこの距離に 8 個のボタンを配置する。
+ */
+export const UNIT_DIRECTION_PICKER_RADIUS = 74
+
+/** 各方向ピッカーボタンの円半径 */
+export const UNIT_DIRECTION_PICKER_BUTTON_RADIUS = 14
+
+/** ピッカーボタンの塗り色 (非選択時)。半透明の濃紺で、下のグリッドが透けて見える */
+export const UNIT_DIRECTION_PICKER_BUTTON_FILL = '#0f172a'
+
+/** ピッカーボタンの塗り opacity (非選択時) */
+export const UNIT_DIRECTION_PICKER_BUTTON_FILL_OPACITY = 0.7
+
+/** ピッカーボタンの縁取り色 (非選択時)。slate-400 */
+export const UNIT_DIRECTION_PICKER_BUTTON_STROKE = '#94a3b8'
+
+/** ピッカーボタンの縁取り幅 */
+export const UNIT_DIRECTION_PICKER_BUTTON_STROKE_WIDTH = 1.5
+
+/** 現在 direction のボタンの塗り色。sky-400 */
+export const UNIT_DIRECTION_PICKER_BUTTON_SELECTED_FILL = '#38bdf8'
+
+/** 現在 direction のボタンの塗り opacity */
+export const UNIT_DIRECTION_PICKER_BUTTON_SELECTED_FILL_OPACITY = 0.85
+
+/** 現在 direction のボタンの縁取り色。slate-50 */
+export const UNIT_DIRECTION_PICKER_BUTTON_SELECTED_STROKE = '#f8fafc'
+
+/** ピッカーボタン内の小矢印 line 始点 (ボタン中心からの距離) */
+export const UNIT_DIRECTION_PICKER_ARROW_INNER = 3
+
+/** ピッカーボタン内の小矢印 line 終点 = 三角形の付け根 (ボタン中心からの距離) */
+export const UNIT_DIRECTION_PICKER_ARROW_OUTER = 7
+
+/** ピッカーボタン内の小矢印 三角形の長さ */
+export const UNIT_DIRECTION_PICKER_ARROW_HEAD_LENGTH = 4
+
+/** ピッカーボタン内の小矢印 三角形の半幅 */
+export const UNIT_DIRECTION_PICKER_ARROW_HALF_WIDTH = 3
+
+/** ピッカーボタン内の小矢印 line の stroke 幅 */
+export const UNIT_DIRECTION_PICKER_ARROW_LINE_WIDTH = 1.5
+
+/** focus 時に追加で描く focus ring の半径 (ボタン半径より少し大きい円) */
+export const UNIT_DIRECTION_PICKER_FOCUS_RING_RADIUS = 17
+
+/** focus ring の縁取り色。amber-300 (他 UI の点灯色と揃える) */
+export const UNIT_DIRECTION_PICKER_FOCUS_RING_STROKE = '#fcd34d'
+
+/** focus ring の縁取り幅 */
+export const UNIT_DIRECTION_PICKER_FOCUS_RING_STROKE_WIDTH = 2

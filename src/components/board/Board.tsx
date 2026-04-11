@@ -21,6 +21,7 @@
 import { VIEW_BOX_SIZE } from '../../constants/board'
 import { UNIT_IDS } from '../../constants/game'
 import { useBoard } from '../../state/BoardContext'
+import { DirectionPicker } from './DirectionPicker'
 import { GridBackground } from './GridBackground'
 import { SvgDefs } from './SvgDefs'
 import { UnitToken } from './UnitToken'
@@ -42,6 +43,13 @@ export function Board() {
       {UNIT_IDS.map((id) => (
         <UnitToken key={id} unit={board.units[id]} />
       ))}
+      {/*
+        DirectionPicker (Phase 7) は UnitToken 群より **後** に描画する。
+        SVG の z-order は後勝ちなので、ピッカーが必ず最前面に来る。
+        最外 <g> は data-no-export="true" を持ち、Phase 9 PNG 出力時に
+        cloneNode 後の subtree から除外される (DirectionPicker.tsx の冒頭参照)。
+      */}
+      <DirectionPicker />
     </svg>
   )
 }

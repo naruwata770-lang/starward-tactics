@@ -9,12 +9,43 @@ import type {
   BoardState,
   CoreType,
   Cost,
+  Direction,
   StarburstLevel,
   Unit,
   UnitId,
 } from '../types/board'
 
 export const UNIT_IDS: readonly UnitId[] = ['self', 'ally', 'enemy1', 'enemy2']
+
+/**
+ * 8 方向の度数リスト (0° = 上、時計回り 45° 刻み)。
+ *
+ * Phase 7 (Issue #8) で導入: DirectionPicker / UnitToken の矢印描画から参照する。
+ *
+ * 「方向は 8 値リテラル」というゲームドメインの定数なので constants/game.ts に置く
+ * (描画寸法は constants/board.ts、ドメイン定数は constants/game.ts という責務分担)。
+ *
+ * 並びは Direction 型の宣言順 (types/board.ts) と一致させ、SVG の角度系
+ * (0 = 上 / 時計回り) を直接表す。
+ */
+export const DIRECTIONS_8: readonly Direction[] = [
+  0, 45, 90, 135, 180, 225, 270, 315,
+]
+
+/**
+ * 各方向のアクセシビリティラベル。
+ * DirectionPicker の `aria-label` と `<title>` で使う。
+ */
+export const DIRECTION_LABELS: Record<Direction, string> = {
+  0: '上向き',
+  45: '右上向き',
+  90: '右向き',
+  135: '右下向き',
+  180: '下向き',
+  225: '左下向き',
+  270: '左向き',
+  315: '左上向き',
+}
 
 export const UNIT_LABELS: Record<UnitId, string> = {
   self: '自機',
