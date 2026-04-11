@@ -1,18 +1,24 @@
 /**
  * SVG <defs>: 盤面で使い回す pattern / marker などを定義する。
  *
- * 現状は GRID_SIZE のグリッド pattern のみ。Phase 5 以降でロックオンの矢印
- * marker を追加予定。
+ * 現状は GRID_SIZE のグリッド pattern のみ。Phase 8 (ロック線) でロックオンの
+ * 矢印 marker を追加予定。
  *
  * 注意: ここで定義する色は SVG 属性ベース (fill/stroke)。Tailwind class は
  * 使わない (Phase 9 の PNG 出力で外部 CSS が解決されないため)。
+ *
+ * memo 化の理由 (Phase 6):
+ * Board が毎ドラッグフレームで再 render されるとき、props のない静的コンポーネント
+ * を memo で囲んでおけば即スキップされる。UnitToken / GridBackground と方針統一。
  */
+
+import { memo } from 'react'
 
 import { GRID_SIZE } from '../../constants/board'
 
 export const GRID_PATTERN_ID = 'tacticsboard-grid'
 
-export function SvgDefs() {
+export const SvgDefs = memo(function SvgDefs() {
   return (
     <defs>
       <pattern
@@ -30,4 +36,4 @@ export function SvgDefs() {
       </pattern>
     </defs>
   )
-}
+})

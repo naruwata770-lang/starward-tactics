@@ -8,9 +8,19 @@
  * - 名前ピル: 円の下に配置
  *   - 「{ユニット名} {コア略称}」を表示。コア略称は CORE_TYPES の色で着色 (一目で識別)
  *
- * Phase 4 以降の予定:
+ * Phase 6 (Issue #7) で追加した責務:
+ * - useDrag の Pointer ハンドラを最外 <g> に貼ってドラッグ対応
+ * - touchAction: 'none' でブラウザのスクロール / ピンチ介入を抑止
+ *   (style 属性で書く理由: Phase 9 の PNG 出力で外部 CSS が解決されないため。
+ *    `<g>` に置けば touch-action は祖先方向に解決されるので、ユニットの
+ *    interactive 領域だけスクロール抑止が効き、盤面外のページスクロールは生きる)
+ * - React.memo でラップ: ドラッグ中は MOVE_UNIT で BoardPresentContext が
+ *   毎フレーム更新され Board が再 render されるが、updateUnit (boardReducer) は
+ *   変更ユニットだけ新オブジェクトを作るので、他ユニットの memo は参照同一で
+ *   即スキップされる
+ *
+ * Phase 7 以降の予定:
  * - `unit.direction` を反映した方向インジケータ (Phase 7)
- * - 選択中のハイライト (Phase 6 でドラッグと共に)
  * - ロックオン線 (Phase 8)
  *
  * 重要: SVG 内の色は fill/stroke 属性で指定する (Tailwind class 禁止)。
@@ -20,6 +30,8 @@
  * すべて constants/board.ts に集約しており、boardReducer の座標クランプも
  * 同じ定数を参照して安全範囲を導出している。
  */
+
+import { memo } from 'react'
 
 import {
   UNIT_COST_FONT_SIZE,
@@ -47,6 +59,7 @@ import {
   UNIT_COLORS,
   UNIT_LABELS,
 } from '../../constants/game'
+import { useDrag } from '../../hooks/useDrag'
 import type { StarburstLevel, Unit } from '../../types/board'
 
 // 円中心からラベル上端までの距離。constants の UNIT_RADIUS と UNIT_LABEL_GAP の和。
@@ -73,12 +86,17 @@ export interface UnitTokenProps {
   unit: Unit
 }
 
-export function UnitToken({ unit }: UnitTokenProps) {
+export const UnitToken = memo(function UnitToken({ unit }: UnitTokenProps) {
   const color = UNIT_COLORS[unit.id]
   const label = UNIT_LABELS[unit.id]
   // CORE_TYPE_BY_ID は constants/game.ts で satisfies により全キー網羅が型で保証されている
   const coreColor = CORE_TYPE_BY_ID[unit.coreType].color
   const sbCount = sbFillCount(unit.starburst)
+  // useDrag に unit を渡す理由 (PR #25 レビュー指摘 [共通: 高] 反映):
+  // useDrag が useBoard() で context を購読すると、`useContext` が `React.memo` を
+  // 迂回して全 UnitToken を毎フレーム再 render してしまう。unit を引数で渡すことで
+  // context 購読を避け、本体の memo 化が初めて意図通りに効く。
+  const dragHandlers = useDrag({ unit })
 
   // SB ゲージ 2 バーの x 配置 (円中央に対称)
   // 全体幅 = 2 * BAR_WIDTH + GAP, 中央寄せなので left = -(全体幅 / 2)
@@ -86,7 +104,14 @@ export function UnitToken({ unit }: UnitTokenProps) {
   const sbLeftX = unit.x - sbTotalWidth / 2
 
   return (
-    <g>
+    <g
+      onPointerDown={dragHandlers.onPointerDown}
+      onPointerMove={dragHandlers.onPointerMove}
+      onPointerUp={dragHandlers.onPointerUp}
+      onPointerCancel={dragHandlers.onPointerCancel}
+      onLostPointerCapture={dragHandlers.onLostPointerCapture}
+      style={{ touchAction: 'none', cursor: 'grab' }}
+    >
       {/* SVG 単独で開いたときやスクリーンリーダーでユニットを識別できるように */}
       <title>{label}</title>
 
@@ -171,4 +196,4 @@ export function UnitToken({ unit }: UnitTokenProps) {
       </text>
     </g>
   )
-}
+})
