@@ -9,14 +9,9 @@
  *   withHistory の同座標 no-op 分岐に乗り、past を汚さないこと
  *
  * テスト戦略:
- * - happy-dom には SVGGraphicsElement.getScreenCTM の信頼できる実装がないため、
- *   `vi.spyOn(SVGGraphicsElement.prototype, 'getScreenCTM')` で恒等行列スタブに差し替える
- *   → clientX/Y がそのまま SVG 座標になるので、検証しやすい
- * - setPointerCapture / releasePointerCapture も happy-dom に存在しないので spy で no-op に
+ * - SVG / Pointer 系の prototype スタブは src/__tests__/helpers/svgStubs.ts に集約
+ *   (PR #25 レビュー指摘 [共通: 中] 反映、Phase 7 以降のドラッグ系テストでも再利用)
  * - 検証は Probe コンポーネント (テストファイル内ローカル定義) で state を観測
- *
- * `vi.stubGlobal` ではなく `vi.spyOn` を使うのは、対象がグローバルではなく
- * `Element.prototype` / `SVGGraphicsElement.prototype` だから (testing.md の禁止事項とは別物)。
  */
 
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
@@ -30,6 +25,7 @@ import {
 } from '../state/BoardContext'
 import { BoardProvider } from '../state/BoardProvider'
 import type { UnitId } from '../types/board'
+import { setupSvgPointerStubs } from './helpers/svgStubs'
 
 /**
  * Probe: state を data-testid で観測する検証用部品 (テストファイル内ローカル定義)。
@@ -61,9 +57,15 @@ function Probe() {
  *
  * 本番の UnitToken と同じ構造 (svg > g) を最小限で再現することで、
  * UnitToken への統合前に hook 単体の挙動を分離検証できる。
+ *
+ * useDrag は `unit` を引数で受け取る (PR #25 レビュー指摘 [共通: 高] の反映後)
+ * ため、Probe を経由せず BoardProvider 内の useBoard で最新の unit を引いて
+ * useDrag に渡す。これにより本番の UnitToken と同じデータフローを再現できる。
  */
 function DraggableHarness({ unitId }: { unitId: UnitId }) {
-  const handlers = useDrag({ unitId })
+  const board = useBoard()
+  const unit = board.units[unitId]
+  const handlers = useDrag({ unit })
   return (
     <svg width={720} height={720} viewBox="0 0 720 720" data-testid="svg-root">
       <g
@@ -81,90 +83,10 @@ function DraggableHarness({ unitId }: { unitId: UnitId }) {
   )
 }
 
-/**
- * happy-dom には createSVGPoint / setPointerCapture / releasePointerCapture が
- * 実装されていない (or matrixTransform を返さない) ので、prototype に空関数を
- * 仕込んでから vi.spyOn で実装を当てる。
- *
- * `vi.spyOn` の対象が undefined だと throw するため、先に no-op を defineProperty
- * しておくのがミソ。afterEach の `vi.restoreAllMocks()` で空関数の状態に戻り、
- * テスト間で漏洩しない (= testing.md の禁止事項である「直接代入による漏洩」とは別物)。
- */
-function installPrototypeStubs() {
-  if (typeof (SVGSVGElement.prototype as unknown as { createSVGPoint?: unknown }).createSVGPoint !== 'function') {
-    Object.defineProperty(SVGSVGElement.prototype, 'createSVGPoint', {
-      value: function () {
-        return {
-          x: 0,
-          y: 0,
-          matrixTransform(this: { x: number; y: number }) {
-            return { x: this.x, y: this.y }
-          },
-        }
-      },
-      configurable: true,
-      writable: true,
-    })
-  }
-  if (typeof (Element.prototype as unknown as { setPointerCapture?: unknown }).setPointerCapture !== 'function') {
-    Object.defineProperty(Element.prototype, 'setPointerCapture', {
-      value: function () {},
-      configurable: true,
-      writable: true,
-    })
-  }
-  if (typeof (Element.prototype as unknown as { releasePointerCapture?: unknown }).releasePointerCapture !== 'function') {
-    Object.defineProperty(Element.prototype, 'releasePointerCapture', {
-      value: function () {},
-      configurable: true,
-      writable: true,
-    })
-  }
-}
-
+// SVG / Pointer 系 prototype スタブは src/__tests__/helpers/svgStubs.ts に集約
+// (PR #25 レビュー指摘 [共通: 中] 反映、Phase 7 以降のドラッグ系テストでも再利用)。
 beforeEach(() => {
-  installPrototypeStubs()
-
-  // 恒等変換 CTM。pt.matrixTransform は (恒等なら) pt.x/y をそのまま返すように
-  // createSVGPoint スタブで実装している。getScreenCTM 自体は inverse() の存在だけ
-  // 担保すれば良い。
-  vi.spyOn(SVGGraphicsElement.prototype, 'getScreenCTM').mockImplementation(
-    function () {
-      return {
-        a: 1,
-        b: 0,
-        c: 0,
-        d: 1,
-        e: 0,
-        f: 0,
-        inverse() {
-          return this
-        },
-      } as unknown as DOMMatrix
-    },
-  )
-
-  // createSVGPoint も上書きして、毎回新しいオブジェクトを返すように
-  // (テスト間で同じインスタンスが共有されないように)
-  vi.spyOn(SVGSVGElement.prototype, 'createSVGPoint').mockImplementation(
-    function () {
-      return {
-        x: 0,
-        y: 0,
-        matrixTransform(this: { x: number; y: number }) {
-          // 恒等行列前提: pt.x/y をそのまま返す
-          return { x: this.x, y: this.y } as DOMPoint
-        },
-      } as unknown as DOMPoint
-    },
-  )
-
-  vi.spyOn(Element.prototype, 'setPointerCapture').mockImplementation(
-    () => {},
-  )
-  vi.spyOn(Element.prototype, 'releasePointerCapture').mockImplementation(
-    () => {},
-  )
+  setupSvgPointerStubs()
 })
 
 afterEach(() => {
@@ -269,8 +191,15 @@ describe('useDrag', () => {
       )
       const target = screen.getByTestId('drag-target-enemy1')
 
-      // 初期 selectedUnit は 'self' (BoardProvider のデフォルト)
-      expect(screen.getByTestId('selected').textContent).toBe('self')
+      // 「BoardProvider の初期 selectedUnit が何か」には依存しない relative 検証
+      // (BoardProvider.tsx を将来触ったらテストが壊れる暗黙依存を断つ)。
+      // タップ前は enemy1 が選択されていないことだけを前提とし、タップで
+      // enemy1 に切り替わることを差で検証する。
+      const selectedBefore = screen.getByTestId('selected').textContent
+      // 前提: タップ前は enemy1 が選択されていない
+      // (この assert が落ちたら「初期 selection が enemy1 になった」の意味なので
+      //  別のユニット (例: 'ally') でテストし直すこと)
+      expect(selectedBefore).not.toBe('enemy1')
       const initialX = Number(screen.getByTestId('enemy1-x').textContent)
 
       fireEvent.pointerDown(target, {
@@ -285,8 +214,9 @@ describe('useDrag', () => {
         clientY: 200,
       })
 
-      // 選択は enemy1 に切り替わる
+      // タップ後は必ず enemy1 が選択されている (selectedBefore とは別物のはず)
       expect(screen.getByTestId('selected').textContent).toBe('enemy1')
+      expect(screen.getByTestId('selected').textContent).not.toBe(selectedBefore)
       // 座標は変化なし (= 元の参照のまま)
       expect(Number(screen.getByTestId('enemy1-x').textContent)).toBe(initialX)
       // 履歴は積まれない

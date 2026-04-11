@@ -92,7 +92,11 @@ export const UnitToken = memo(function UnitToken({ unit }: UnitTokenProps) {
   // CORE_TYPE_BY_ID は constants/game.ts で satisfies により全キー網羅が型で保証されている
   const coreColor = CORE_TYPE_BY_ID[unit.coreType].color
   const sbCount = sbFillCount(unit.starburst)
-  const dragHandlers = useDrag({ unitId: unit.id })
+  // useDrag に unit を渡す理由 (PR #25 レビュー指摘 [共通: 高] 反映):
+  // useDrag が useBoard() で context を購読すると、`useContext` が `React.memo` を
+  // 迂回して全 UnitToken を毎フレーム再 render してしまう。unit を引数で渡すことで
+  // context 購読を避け、本体の memo 化が初めて意図通りに効く。
+  const dragHandlers = useDrag({ unit })
 
   // SB ゲージ 2 バーの x 配置 (円中央に対称)
   // 全体幅 = 2 * BAR_WIDTH + GAP, 中央寄せなので left = -(全体幅 / 2)

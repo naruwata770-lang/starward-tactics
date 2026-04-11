@@ -11,18 +11,17 @@
  * - 既存の <title>{label}</title> から `parentElement` で <g> を取り出す
  *   (<title> はスクリーンリーダー対応のために元々あるもの。テスト用追加属性ではない)
  *
- * SVG プロトタイプスタブの理由は useDrag.test.tsx の冒頭コメント参照
+ * SVG / Pointer 系 prototype スタブは src/__tests__/helpers/svgStubs.ts に集約
  * (happy-dom には createSVGPoint / setPointerCapture の信頼できる実装がないため)。
  */
 
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-// `screen` を使うので import を残す (Probe 経由の data-testid 取得で使用)
-
 import { Board } from '../components/board/Board'
 import { useBoard, useBoardHistory } from '../state/BoardContext'
 import { BoardProvider } from '../state/BoardProvider'
+import { setupSvgPointerStubs } from './helpers/svgStubs'
 
 function Probe() {
   const board = useBoard()
@@ -36,73 +35,9 @@ function Probe() {
   )
 }
 
-function installPrototypeStubs() {
-  if (typeof (SVGSVGElement.prototype as unknown as { createSVGPoint?: unknown }).createSVGPoint !== 'function') {
-    Object.defineProperty(SVGSVGElement.prototype, 'createSVGPoint', {
-      value: function () {
-        return {
-          x: 0,
-          y: 0,
-          matrixTransform(this: { x: number; y: number }) {
-            return { x: this.x, y: this.y }
-          },
-        }
-      },
-      configurable: true,
-      writable: true,
-    })
-  }
-  if (typeof (Element.prototype as unknown as { setPointerCapture?: unknown }).setPointerCapture !== 'function') {
-    Object.defineProperty(Element.prototype, 'setPointerCapture', {
-      value: function () {},
-      configurable: true,
-      writable: true,
-    })
-  }
-  if (typeof (Element.prototype as unknown as { releasePointerCapture?: unknown }).releasePointerCapture !== 'function') {
-    Object.defineProperty(Element.prototype, 'releasePointerCapture', {
-      value: function () {},
-      configurable: true,
-      writable: true,
-    })
-  }
-}
-
+// SVG / Pointer 系 prototype スタブは src/__tests__/helpers/svgStubs.ts に集約。
 beforeEach(() => {
-  installPrototypeStubs()
-
-  vi.spyOn(SVGGraphicsElement.prototype, 'getScreenCTM').mockImplementation(
-    function () {
-      return {
-        a: 1,
-        b: 0,
-        c: 0,
-        d: 1,
-        e: 0,
-        f: 0,
-        inverse() {
-          return this
-        },
-      } as unknown as DOMMatrix
-    },
-  )
-  vi.spyOn(SVGSVGElement.prototype, 'createSVGPoint').mockImplementation(
-    function () {
-      return {
-        x: 0,
-        y: 0,
-        matrixTransform(this: { x: number; y: number }) {
-          return { x: this.x, y: this.y } as DOMPoint
-        },
-      } as unknown as DOMPoint
-    },
-  )
-  vi.spyOn(Element.prototype, 'setPointerCapture').mockImplementation(
-    () => {},
-  )
-  vi.spyOn(Element.prototype, 'releasePointerCapture').mockImplementation(
-    () => {},
-  )
+  setupSvgPointerStubs()
 })
 
 afterEach(() => {

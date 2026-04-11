@@ -31,12 +31,21 @@
  * 座標範囲のクランプ (UNIT_COORD_*_MIN/MAX) は reducer 側に集約しているので、
  * この hook は **生の SVG 座標をそのまま dispatch** する。バリデーションを
  * 一箇所 (boardReducer) に集める方針。
+ *
+ * なぜ unit を引数で受け取り useBoard() を呼ばないか (PR #25 レビュー指摘 [共通: 高] 反映):
+ * 当初は useBoard() で BoardPresentContext を購読していたが、`useContext` による
+ * 再 render は `React.memo` を迂回するため、UnitToken を memo でラップした効果が
+ * 完全に潰れていた (ドラッグ中の毎 MOVE_UNIT で全 4 機が再 render される)。
+ * UnitToken はすでに `unit` を props で受け取って memo 化されているので、その
+ * unit をそのまま useDrag に流し込めば、context 購読が消え memo の前提が成立する。
+ * 結果: ドラッグ中は self の UnitToken だけが再 render され、他 3 機は memo で
+ * スキップされる (`updateUnit` が変更ユニット以外の参照を保持する設計と整合)。
  */
 
 import { useCallback, useRef, type PointerEvent as ReactPointerEvent } from 'react'
 
-import { useBoard, useBoardDispatch, useSelection } from '../state/BoardContext'
-import type { UnitId } from '../types/board'
+import { useBoardDispatch, useSelection } from '../state/BoardContext'
+import type { Unit } from '../types/board'
 
 // session 内に最終 dispatch 済み座標を持つ理由:
 // pointerup 時に COMMIT_MOVE で使う「最終位置」を、ストア (BoardState) を再読みせず
@@ -44,7 +53,17 @@ import type { UnitId } from '../types/board'
 // 更新する必要がなくなり、React の「Cannot update ref during render」制約を踏まずに済む。
 
 export interface UseDragArgs {
-  unitId: UnitId
+  /**
+   * ドラッグ対象のユニット。
+   *
+   * UnitToken の props と同じオブジェクトをそのまま渡す前提。useBoard() で
+   * 再購読しないことで UnitToken の memo 化が効くようにしている。
+   *
+   * pointerdown 時の開始座標に `unit.x` / `unit.y` を使う。useCallback の deps
+   * に `unit.x` / `unit.y` を入れることで、ドラッグ中の self 以外 (= 座標が
+   * 変わらないユニット) のハンドラ参照は安定し、UnitToken の memo もスキップする。
+   */
+  unit: Unit
 }
 
 export interface UseDragHandlers {
@@ -104,11 +123,8 @@ function clientToSvg(
   return { x, y }
 }
 
-export function useDrag({ unitId }: UseDragArgs): UseDragHandlers {
-  // useBoard を呼ぶことで pointerdown 時に最新のユニット位置を取得できる。
-  // (UnitToken 自体は board.units[unitId] を props で受け取って memo 化されているので、
-  //  この hook の useBoard 購読は UnitToken の再 render とは独立して走る)
-  const board = useBoard()
+export function useDrag({ unit }: UseDragArgs): UseDragHandlers {
+  const unitId = unit.id
   const dispatch = useBoardDispatch()
   const { setSelectedUnit } = useSelection()
 
@@ -164,14 +180,15 @@ export function useDrag({ unitId }: UseDragArgs): UseDragHandlers {
       if (!svgPoint) return
 
       // setPointerCapture は一部ブラウザや happy-dom で例外を投げる可能性があるが、
-      // capture が取れなくても「target が同じ要素なら」move/up は届く。例外は握り潰す。
+      // capture が取れなくても「target が同じ要素なら」move/up は届く。
+      // 空 catch ブロックの意図 (capture は best-effort) を ESLint no-empty に
+      // 引っかからない形でコメント化しておく。
       try {
         e.currentTarget.setPointerCapture(e.pointerId)
       } catch {
-        // ignore
+        /* ignore: setPointerCapture is best-effort. capture が取れなくても move/up は届く */
       }
 
-      const unit = board.units[unitId]
       sessionRef.current = {
         pointerId: e.pointerId,
         originX: unit.x,
@@ -186,7 +203,11 @@ export function useDrag({ unitId }: UseDragArgs): UseDragHandlers {
       // 単純タップでも選択は更新する (Issue 完了条件 5: クリックで編集対象切替)
       setSelectedUnit(unitId)
     },
-    [board, setSelectedUnit, unitId],
+    // 注: deps に board ではなく unit.x / unit.y を入れている。これにより、
+    // ドラッグ中の MOVE_UNIT で self の unit が新参照になっても、他 3 機の
+    // unit (= updateUnit で参照保持されている) の onPointerDown は再生成されない。
+    // UnitToken の memo 化と組み合わせて、他ユニットの再 render を完全にスキップする。
+    [setSelectedUnit, unit.x, unit.y, unitId],
   )
 
   const onPointerMove = useCallback(
@@ -194,12 +215,28 @@ export function useDrag({ unitId }: UseDragArgs): UseDragHandlers {
       const session = sessionRef.current
       if (!session || session.pointerId !== e.pointerId) return
 
+      // SVG が DOM から外れた / CTM が取れない極端なケースでは、session が
+      // 取り残されないよう snapback ルートで cleanup する (Gemini レビュー指摘 [中])。
+      // この経路を無視して return すると、次に他ユニットを触った時に session 進行中
+      // 判定で弾かれてしまう。
       const svg = e.currentTarget.ownerSVGElement
-      if (!svg) return
-
+      if (!svg) {
+        endDrag('snapback')
+        return
+      }
       const svgPoint = clientToSvg(svg, e.clientX, e.clientY)
-      if (!svgPoint) return
+      if (!svgPoint) {
+        endDrag('snapback')
+        return
+      }
 
+      // session.lastX/Y は **クランプ前の raw 値** を保持する。reducer 側で
+      // UNIT_COORD_*_MIN/MAX にクランプされる前提で、ここでは生の SVG 座標を
+      // そのまま記録する。画面外方向にドラッグして戻したケースでは「raw では
+      // 動いた (= moved=true)」「実効値は不変」になるが、このとき endDrag('commit')
+      // で発火する COMMIT_MOVE は withHistory.ts の同座標 no-op 分岐で吸収される
+      // ので history は汚れない (boardReducer.test.ts / withHistory.test.ts で検証済)。
+      // → 「moved=true でも実際には動いていない」ケースの責務分離は reducer 側に任せる。
       const nextX = svgPoint.x + session.offsetX
       const nextY = svgPoint.y + session.offsetY
       session.moved = true
@@ -207,7 +244,7 @@ export function useDrag({ unitId }: UseDragArgs): UseDragHandlers {
       session.lastY = nextY
       dispatch({ type: 'MOVE_UNIT', unitId, x: nextX, y: nextY })
     },
-    [dispatch, unitId],
+    [dispatch, endDrag, unitId],
   )
 
   const onPointerUp = useCallback(
