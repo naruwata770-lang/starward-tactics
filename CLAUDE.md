@@ -34,6 +34,10 @@
 - Node: `.nvmrc` 参照
 - Shell: Windows 11 + Git Bash (パス区切りは `/`)
 
+## Issue 作成
+
+新規 Issue は `.github/ISSUE_TEMPLATE/task.md` テンプレートを使い、本文冒頭の `slug:` 行に kebab-case の topic を記入する (例: `slug: phase7-direction`)。slug は branch 名 `feat/<N>-<slug>` に使われ、parallel-worktree skill が自動取得する。blank issue (テンプレート未使用) は slug を持たないため自動 dispatch 対象外。自動化を使う Issue は必ずテンプレート経由で作成すること。
+
 ## Phase 進捗
 
 `gh issue list` で確認 (Phase 番号と Issue 番号の対応を含む)。
