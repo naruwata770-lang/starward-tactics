@@ -32,6 +32,7 @@ import { UNIT_IDS } from '../../constants/game'
 import { useBoard } from '../../state/BoardContext'
 import { DirectionPicker } from './DirectionPicker'
 import { GridBackground } from './GridBackground'
+import { LockLines } from './LockLines'
 import { SvgDefs } from './SvgDefs'
 import { UnitToken } from './UnitToken'
 
@@ -50,6 +51,8 @@ export function Board() {
     >
       <SvgDefs />
       <GridBackground />
+      {/* Phase 8: ロック線はユニットより下のレイヤーに描画し、トークンを覆わない */}
+      <LockLines />
       {UNIT_IDS.map((id) => (
         <UnitToken key={id} unit={board.units[id]} />
       ))}
