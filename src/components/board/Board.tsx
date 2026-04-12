@@ -27,7 +27,7 @@
  * だけで、SVG 内描画の clip には影響しない。
  */
 
-import { VIEW_BOX_SIZE } from '../../constants/board'
+import { BOARD_SVG_ID, VIEW_BOX_SIZE } from '../../constants/board'
 import { UNIT_IDS } from '../../constants/game'
 import { useBoard } from '../../state/BoardContext'
 import { DirectionPicker } from './DirectionPicker'
@@ -41,6 +41,7 @@ export function Board() {
 
   return (
     <svg
+      id={BOARD_SVG_ID}
       viewBox={`0 0 ${VIEW_BOX_SIZE} ${VIEW_BOX_SIZE}`}
       xmlns="http://www.w3.org/2000/svg"
       width="100%"
