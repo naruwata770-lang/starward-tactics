@@ -54,7 +54,7 @@ export function Layout({ toolbar, board, inspector }: LayoutProps) {
       <footer className="border-t border-slate-800 px-4 py-2 text-center text-xs text-slate-500">
         Inspired by{' '}
         <a
-          href="https://and-and-and.com/exvs2xb/"
+          href="https://www.kuro7983.com/apps/exvs2ib-tactics-board"
           target="_blank"
           rel="noopener noreferrer"
           className="underline hover:text-slate-300 transition"
