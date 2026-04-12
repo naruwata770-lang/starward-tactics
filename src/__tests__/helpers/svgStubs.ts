@@ -36,6 +36,12 @@ import { vi } from 'vitest'
 /**
  * prototype に空関数を仕込む (1 回だけ実行される初期化フェーズ)。
  * すでに実装が存在する場合は触らない (ブラウザネイティブの動作を尊重)。
+ *
+ * 注: `getScreenCTM` はここで defineProperty していない。
+ * happy-dom は `SVGGraphicsElement.prototype.getScreenCTM` を実装済みで
+ * `vi.spyOn` が直接通るため、事前に空関数を仕込む必要がない。
+ * 将来 jsdom 等の別環境に移行する場合は `getScreenCTM` も追加が必要になる
+ * 可能性がある (jsdom は SVG サポートが薄いため)。
  */
 function installPrototypeStubs() {
   if (
