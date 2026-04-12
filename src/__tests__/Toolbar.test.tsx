@@ -99,13 +99,20 @@ describe('Toolbar buttons', () => {
         clipboard: { writeText },
       })
 
-      render(<ShareButton />)
+      render(
+        <BoardProvider>
+          <ShareButton />
+        </BoardProvider>,
+      )
       const button = screen.getByRole('button', { name: 'URLをコピー' })
       expect(button.textContent).toContain('共有')
 
       await user.click(button)
 
-      expect(writeText).toHaveBeenCalledWith(window.location.href)
+      expect(writeText).toHaveBeenCalled()
+      // board state から直接 encode した URL がコピーされる
+      const copiedUrl = writeText.mock.calls[0][0] as string
+      expect(copiedUrl).toMatch(/^https?:\/\//)
       expect(button.textContent).toContain('コピー')
     })
 
@@ -117,7 +124,11 @@ describe('Toolbar buttons', () => {
       })
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
-      render(<ShareButton />)
+      render(
+        <BoardProvider>
+          <ShareButton />
+        </BoardProvider>,
+      )
       const button = screen.getByRole('button', { name: 'URLをコピー' })
 
       await user.click(button)
