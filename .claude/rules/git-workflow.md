@@ -103,6 +103,19 @@ feature 実装後の PR は **`/review` (Claude サブエージェント / Gemin
 
 AI 指摘の却下理由を残す目的: 次回レビューで Reviewer が「前回の指摘は無視されたのか採用されたのか」を判断できるようにし、評価軸をぶらさないため。口頭で「今回は意図的にスルーした」と言っても次セッションの Reviewer には伝わらない。
 
+## UX ベースライン更新
+
+UI を変える PR は merge 前に **iteration を 1 つ進める**。進めない場合はその理由を PR コメントに残す。
+
+iteration を進める方法は 2 つ:
+
+1. **uxaudit 本家** (`/uxaudit:uxaudit`) — plugin がインストール済みなら自動で L1〜L4 検証を走らせる。詳細は `.claude/rules/uxaudit.md` を参照
+2. **AI レビュー fallback** (`.claude/rules/ux-review.md`) — plugin が動かない / 軽量チェックだけ欲しい場合。Claude + Gemini + Codex の 3 者でスクショベースの UX レビューを行う
+
+いずれの場合も結果を `docs/uxaudit/iteration-<N>/summary.md` に記録する。判定軸は「4 失敗パターン (伝わらない / ぼやける / 見つからない / 始まらない)」と「Credo 4 原則」の 2 階層 (`.claude/rules/uxaudit.md` / `.claude/rules/credo.md` 参照)。
+
+「UI を変える」の判断基準: 画面表示・導線・スタイルに影響する変更を含む PR は対象。典型例は `src/components/` 配下だが、`src/App.tsx` / `src/index.css` / `public/` 内の静的アセットなども該当する。純粋なロジック変更 (reducer / codec / hook のみ) で画面描画に影響しない場合は対象外。迷ったら進めておく方が安全。
+
 ## 品質ゲート (push 前に必ず通す)
 
 ```bash
