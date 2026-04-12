@@ -33,7 +33,7 @@ export const UnitSelector = memo(function UnitSelector() {
             // text-black を使う理由:
             // ally (#2563eb blue-600) は slate-900 文字だと AA 4.5:1 を割る (3.89)。
             // 純粋黒だと全ユニットカラーで 4.6+ をクリアするのでこれで統一する。
-            className={`flex-1 rounded-md px-2 py-2 text-xs font-bold text-black transition ${
+            className={`flex-1 cursor-pointer rounded-md px-2 py-2 text-xs font-bold text-black transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-400 focus-visible:outline-offset-2 ${
               isSelected
                 ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-950'
                 : 'opacity-70 hover:opacity-100'

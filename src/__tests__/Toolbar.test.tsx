@@ -17,6 +17,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CostSelector } from '../components/inspector/CostSelector'
 import { RedoButton } from '../components/toolbar/RedoButton'
 import { ResetButton } from '../components/toolbar/ResetButton'
+import { ShareButton } from '../components/toolbar/ShareButton'
 import { UndoButton } from '../components/toolbar/UndoButton'
 import { useBoard } from '../state/BoardContext'
 import { BoardProvider } from '../state/BoardProvider'
@@ -87,6 +88,45 @@ describe('Toolbar buttons', () => {
       // Redo
       await user.click(getButton('やり直す'))
       expect(screen.getByTestId('self-cost').textContent).toBe('2')
+    })
+  })
+
+  describe('ShareButton', () => {
+    it('copies URL to clipboard and shows success label', async () => {
+      const user = userEvent.setup()
+      const writeText = vi.fn().mockResolvedValue(undefined)
+      vi.stubGlobal('navigator', {
+        clipboard: { writeText },
+      })
+
+      render(<ShareButton />)
+      const button = screen.getByRole('button', { name: 'URLをコピー' })
+      expect(button.textContent).toContain('共有')
+
+      await user.click(button)
+
+      expect(writeText).toHaveBeenCalledWith(window.location.href)
+      expect(button.textContent).toContain('コピー')
+    })
+
+    it('does not show success label when clipboard write fails', async () => {
+      const user = userEvent.setup()
+      const writeText = vi.fn().mockRejectedValue(new Error('denied'))
+      vi.stubGlobal('navigator', {
+        clipboard: { writeText },
+      })
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+      render(<ShareButton />)
+      const button = screen.getByRole('button', { name: 'URLをコピー' })
+
+      await user.click(button)
+
+      expect(button.textContent).toContain('共有')
+      expect(button.textContent).not.toContain('コピー')
+      expect(warnSpy).toHaveBeenCalled()
+
+      warnSpy.mockRestore()
     })
   })
 

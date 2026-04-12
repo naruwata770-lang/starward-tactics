@@ -1,17 +1,15 @@
 /**
- * Toolbar: タイトルと最小限の操作ボタン (Undo / Redo / Reset) を並べる。
+ * Toolbar: タイトルと操作ボタンを並べるヘッダー。
  *
- * Phase 5 で従来の `ToolbarPlaceholder` を置き換える。
- *
- * URL 共有機能は Toolbar に UI を持たない: state 変更時に自動で `?b=` が
- * 更新されるので、ユーザーは「現在の URL をコピー」するだけで共有できる。
- * 「共有 URL を生成」ボタンを置く案もあるが、URL バーの状態がそのまま正解
- * なので明示ボタンは不要。Phase 5 では追加しない。
+ * Phase 5 で従来の `ToolbarPlaceholder` を置き換え。
+ * Phase 10 で ShareButton を追加: URL バーの自動更新だけでは非自明なため、
+ * 明示的なコピーボタンを追加して共有操作を発見しやすくした。
  */
 
 import { ExportButton } from './ExportButton'
 import { RedoButton } from './RedoButton'
 import { ResetButton } from './ResetButton'
+import { ShareButton } from './ShareButton'
 import { UndoButton } from './UndoButton'
 
 export function Toolbar() {
@@ -22,6 +20,7 @@ export function Toolbar() {
         <UndoButton />
         <RedoButton />
         <ResetButton />
+        <ShareButton />
         <ExportButton />
       </div>
     </div>

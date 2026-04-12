@@ -38,7 +38,7 @@ export const CostSelector = memo(function CostSelector({
             type="button"
             aria-pressed={isSelected}
             onClick={() => dispatch({ type: 'SET_COST', unitId, cost })}
-            className={`flex-1 rounded-md px-2 py-2 text-sm font-bold transition ${
+            className={`flex-1 cursor-pointer rounded-md px-2 py-2 text-sm font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-400 focus-visible:outline-offset-2 ${
               isSelected
                 ? 'bg-slate-200 text-slate-900'
                 : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
