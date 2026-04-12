@@ -2,10 +2,10 @@ import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
-export default defineConfig(({ command }) => ({
+export default defineConfig(() => ({
   // GitHub Pages のプロジェクトページは /starward-tactics/ 配下でホストされるため、
-  // build 時のみ base を設定する。dev/preview はローカルなので / のまま。
-  base: command === 'build' ? '/starward-tactics/' : '/',
+  // CI (GitHub Actions) でのみ base を設定する。ローカルでは / のまま。
+  base: process.env.GITHUB_ACTIONS ? '/starward-tactics/' : '/',
   plugins: [react(), tailwindcss()],
   test: {
     // Inspector 配下の React コンポーネント (CostSelector / LockTargetSelector 等) の

@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
 
-# 同時デプロイを防止し、進行中のデプロイをキャンセルする
+# 同時デプロイを防止し、進行中のデプロイは完了を待つ (中途半端なデプロイを避ける)
 concurrency:
   group: pages
   cancel-in-progress: false
