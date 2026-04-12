@@ -32,16 +32,16 @@ FAILED=""
 
 run_check() {
   local name="$1"
-  local cmd="$2"
-  if ! eval "$cmd" > /dev/null 2>&1; then
+  shift
+  if ! "$@" > /dev/null 2>&1; then
     FAILED="${FAILED}${FAILED:+, }${name}"
   fi
 }
 
-run_check "lint"      "npm run lint"
-run_check "typecheck" "npm run typecheck"
-run_check "test"      "npm run test"
-run_check "build"     "npm run build"
+run_check "lint"      npm run lint
+run_check "typecheck" npm run typecheck
+run_check "test"      npm run test
+run_check "build"     npm run build
 
 if [[ -n "$FAILED" ]]; then
   echo "[Hook] 品質ゲート失敗: ${FAILED}" >&2

@@ -12,7 +12,7 @@ Bash ツールで `git *` コマンドが実行される前に発火し、以下
 |--------|------------|----------------|
 | main 直 push 禁止 | `git push ... main` (あらゆる refspec 形式) | 禁止事項 1 |
 | amend 禁止 | `git commit --amend` | 禁止事項 2 |
-| --no-verify 禁止 | `git commit --no-verify`, `git push --no-verify` | 必須コマンド節 |
+| --no-verify 禁止 | `git commit --no-verify` (`-n` 含む), `git push --no-verify` | 必須コマンド節 |
 
 ブロック時は deny 理由が Claude に返され、代替手段が案内される。
 
@@ -21,7 +21,7 @@ Bash ツールで `git *` コマンドが実行される前に発火し、以下
 Claude がタスク完了で停止する前に発火し、品質ゲートを実行する。
 
 - **変更検知**: `git diff` で変更なし (調査セッション等) ならスキップ
-- **品質ゲート**: `npm run lint && typecheck && test && build` を順次実行
+- **品質ゲート**: `npm run lint` / `typecheck` / `test` / `build` を順次実行
 - **失敗時**: 停止を拒否し、失敗したコマンドを通知。Claude は修正を試みる
 
 ## 機械強制できない禁止事項
