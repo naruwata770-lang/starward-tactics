@@ -8,10 +8,9 @@ Claude + Gemini + Codex に UX レビューを委ねる。
 ## 前提
 
 - `gemini --version` と `codex --version` が両方通ること (ローカル開発環境)
-- **判定軸は 4 失敗パターン**「伝わらない／ぼやける／見つからない／始まらない」
-  - `.claude/rules/uxaudit.md` 末尾の定義を参照
-  - 🚧 Credo 4 原則 (並列 Issue `#19 α` で `.claude/rules/credo.md` を追加予定) が
-    マージされたら、このプロトコルに第二階層として差し戻す (γ2 の運用統合タスク)
+- **判定軸は 2 階層**:
+  - **第一階層: 4 失敗パターン**「伝わらない／ぼやける／見つからない／始まらない」 — `.claude/rules/uxaudit.md` 末尾の定義を参照
+  - **第二階層: Credo 4 原則** (Core First / Wire Before Decorate / No Dead Code / Spec vs Evidence) — `.claude/rules/credo.md` を参照。4 失敗パターンとの対応は `.claude/rules/uxaudit.md` の対応表を参照
 - 本プロジェクトは Japanese UI。レビューも日本語で依頼する
 
 ## フロー
@@ -73,9 +72,14 @@ Gemini CLI / Codex CLI は画像パスを直接解釈しないため、スクシ
 各項目について「該当あり / 該当なし / どちらとも言えない」で判定し、
 該当ありならスクショ番号と根拠を添える。
 
-🚧 Credo 4 原則 (#19 α で `.claude/rules/credo.md` 追加予定) は γ2 の運用統合で
-差し戻す。現時点では 4 失敗パターン単独で判定すること。credo.md をこのリポジトリ
-から探そうとして見つからなかった場合、「未マージのため判定スキップ」と書く。
+【判定軸: Credo 4 原則 (第二階層)】
+`.claude/rules/credo.md` の 4 原則を UX の観点でも問う:
+- Core First, Polish Later: core flow が最短で触れる状態か？装飾が core を遅らせていないか？
+- Wire Before You Decorate: UI 部品が vertical slice として end-to-end で動いているか？
+- No Dead Code: 使われていない UI 要素・到達不能な画面がないか？
+- Spec vs Evidence: 検証シナリオを満たしつつ、実際に触った感触が良いか？
+
+4 失敗パターンと Credo 4 原則の対応は `.claude/rules/uxaudit.md` 末尾を参照。
 
 【出力フォーマット】
 ## 4 失敗パターン判定

@@ -65,6 +65,13 @@ React 19 / TypeScript / Vite / Tailwind CSS v4 / Vitest
 - 盤面描画は SVG。色は属性値 (`fill` / `stroke`) で持ち、Tailwind class に
   依存しない (将来の PNG 出力を単純化するため)
 
+## UX 検証サイクル
+
+UI を変える PR は merge 前に UX ベースラインを更新する運用をしている。
+検証には [uxaudit](https://github.com/gotalab/uxaudit) (Claude Code Plugin) を使い、
+plugin が動かない環境では Claude + Gemini + Codex の 3 者による AI レビュー fallback で代替する。
+結果は `docs/uxaudit/iteration-<N>/summary.md` に記録し、iteration 間の回帰を追跡する。
+
 ## ロードマップ
 
 Phase 1 〜 10 で機能を段階的に組み上げる構成。現在の進捗 (完了済み Phase /

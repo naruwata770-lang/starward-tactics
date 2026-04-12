@@ -17,6 +17,7 @@
 - **既存コミットへの amend 禁止** (新コミットを積む) → `.claude/rules/git-workflow.md`
 - **`window` / `globalThis` の直接モック禁止** (`vi.stubGlobal` を使う) → `.claude/rules/testing.md`
 - **後方互換シム / 廃止コメントを残さない** (削除すべきコードは完全削除) → `.claude/rules/code-conventions.md`
+- **`docs/uxaudit/` には人間向け要約のみ置く** (uxaudit 本家の raw artifact は plugin 既定 workspace に任せる) → `.claude/rules/uxaudit.md`
 
 ## ルーティング
 
@@ -28,6 +29,8 @@
 - 3 者並列レビュー (Claude / Gemini / Codex) → `/review` (`.claude/skills/review/`)
 - セカンドオピニオン (Gemini + Codex) → `/ask-others` ※ローカル開発環境のみ (Gemini CLI + Codex CLI 必須)
 - 大きめ実装の事前計画 → `drafts/<issue番号>-<topic>-plan.md` に書いてから `/ask-others`
+- uxaudit (UX 回帰テスト: プラグイン or AI fallback) → `.claude/rules/uxaudit.md` / `.claude/rules/ux-review.md`
+- iteration ベースライン → `docs/uxaudit/iteration-<N>/summary.md`
 
 ## 環境
 
