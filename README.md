@@ -69,7 +69,7 @@ React 19 / TypeScript / Vite / Tailwind CSS v4 / Vitest
 
 UI を変える PR は merge 前に UX ベースラインを更新する運用をしている。
 検証には [uxaudit](https://github.com/gotalab/uxaudit) (Claude Code Plugin) を使い、
-plugin が動かない環境では Claude + Gemini + Codex の 3 者による AI レビュー fallback で代替する。
+plugin が動かない環境では Claude + Gemini + Codex の 3 者による AI レビュー fallback (ローカル開発環境のみ) で代替する。
 結果は `docs/uxaudit/iteration-<N>/summary.md` に記録し、iteration 間の回帰を追跡する。
 
 ## ロードマップ

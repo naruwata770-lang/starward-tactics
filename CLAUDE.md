@@ -17,7 +17,7 @@
 - **既存コミットへの amend 禁止** (新コミットを積む) → `.claude/rules/git-workflow.md`
 - **`window` / `globalThis` の直接モック禁止** (`vi.stubGlobal` を使う) → `.claude/rules/testing.md`
 - **後方互換シム / 廃止コメントを残さない** (削除すべきコードは完全削除) → `.claude/rules/code-conventions.md`
-- **`docs/uxaudit/` には人間向け要約のみ置く** (uxaudit 本家の raw artifact は plugin 既定 workspace に任せる) → `.claude/rules/uxaudit.md`
+- **`docs/uxaudit/` には人間向け成果物のみ置く** (`summary.md` / `manual-ai.md` / `install-log.md` 等。uxaudit 本家の raw artifact は plugin 既定 workspace に任せる) → `.claude/rules/uxaudit.md`
 
 ## ルーティング
 

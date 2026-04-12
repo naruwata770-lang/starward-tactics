@@ -74,7 +74,8 @@ Gemini CLI / Codex CLI は画像パスを直接解釈しないため、スクシ
 
 【判定軸: Credo 4 原則 (第二階層)】
 `.claude/rules/credo.md` の 4 原則を UX の観点でも問う:
-- Core First, Polish Later: core flow が最短で触れる状態か？装飾が core を遅らせていないか？
+- Core First, Polish Later (ぼやける): 装飾が core flow より目立って優先順位が逆転していないか？
+- Core First, Polish Later (始まらない): 初見ユーザーが core flow に最短で到達できる導線があるか？
 - Wire Before You Decorate: UI 部品が vertical slice として end-to-end で動いているか？
 - No Dead Code: 使われていない UI 要素・到達不能な画面がないか？
 - Spec vs Evidence: 検証シナリオを満たしつつ、実際に触った感触が良いか？
@@ -84,6 +85,9 @@ Gemini CLI / Codex CLI は画像パスを直接解釈しないため、スクシ
 【出力フォーマット】
 ## 4 失敗パターン判定
 | パターン | 判定 | 根拠 |
+
+## Credo 4 原則判定 (第二階層)
+| 原則 | 判定 | 根拠 |
 
 ## 重要度別の具体指摘
 ### 高

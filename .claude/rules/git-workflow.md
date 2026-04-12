@@ -114,7 +114,7 @@ iteration を進める方法は 2 つ:
 
 いずれの場合も結果を `docs/uxaudit/iteration-<N>/summary.md` に記録する。判定軸は「4 失敗パターン (伝わらない / ぼやける / 見つからない / 始まらない)」と「Credo 4 原則」の 2 階層 (`.claude/rules/uxaudit.md` / `.claude/rules/credo.md` 参照)。
 
-「UI を変える」の判断基準: `src/components/` 配下の変更を含む PR は対象。純粋なロジック変更 (reducer / codec / hook のみ) で画面描画に影響しない場合は対象外。迷ったら進めておく方が安全。
+「UI を変える」の判断基準: 画面表示・導線・スタイルに影響する変更を含む PR は対象。典型例は `src/components/` 配下だが、`src/App.tsx` / `src/index.css` / `public/` 内の静的アセットなども該当する。純粋なロジック変更 (reducer / codec / hook のみ) で画面描画に影響しない場合は対象外。迷ったら進めておく方が安全。
 
 ## 品質ゲート (push 前に必ず通す)
 
