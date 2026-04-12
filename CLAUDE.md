@@ -27,7 +27,7 @@
 - State 管理 (Context 4 分割・withHistory・hooks) → `src/state/BoardContext.ts` 冒頭コメント
 - 3 者並列レビュー (Claude / Gemini / Codex) → `/review` (`.claude/skills/review/`)
 - セカンドオピニオン (Gemini + Codex) → `/ask-others` ※ローカル開発環境のみ (Gemini CLI + Codex CLI 必須)
-- 大きめ実装の事前計画 → `.tmp/<issue番号>-<topic>-plan.md` に書いてから `/ask-others`
+- 大きめ実装の事前計画 → `drafts/<issue番号>-<topic>-plan.md` に書いてから `/ask-others`
 
 ## 環境
 

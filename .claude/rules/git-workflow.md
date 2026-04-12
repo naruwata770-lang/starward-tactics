@@ -58,8 +58,9 @@ EOF
 
 新 hook / 新 reducer / 新ファイル群のような大きめの実装に着手する前は:
 
-1. **`.tmp/<phaseN>-plan.md` (または `.tmp/<issue番号>-<topic>-plan.md`) に計画書を書く**
-   - ひな形はローカルの **`.tmp/_plan-template.md`** をコピーして埋める。`.tmp/` は gitignore 配下なので clone 直後 / 別 worktree / CI ではファイルが存在しないことがあり、その場合は**このファイル末尾の「計画書スケルトン」節をコピーして起点にする** (本ルールが self-contained になるように最小構成を埋め込んである)
+1. **`drafts/<phaseN>-plan.md` (または `drafts/<issue番号>-<topic>-plan.md`) に計画書を書く**
+   - ひな形はローカルの **`drafts/_plan-template.md`** をコピーして埋める。`drafts/` は `.gitkeep` のみ追跡しており、計画書ファイル自体はコミットしない (issue 完了後に削除する)。clone 直後 / 別 worktree でテンプレが存在しない場合は**このファイル末尾の「計画書スケルトン」節をコピーして起点にする** (本ルールが self-contained になるように最小構成を埋め込んである)
+   - **なぜ `.tmp/` ではなく `drafts/` か**: Gemini CLI 等の AI ツールは `.gitignore` を ignore source として尊重するため、`.tmp/` (gitignore 対象) に置いたファイルを `read_file` で読めない。`drafts/` は gitignore 対象外なので AI ツールから参照可能
    - **「検証シナリオ」セクションは必須**。`正常系 1 / 異常系 1 / エッジ 1` の最小構成から書き始め、必要に応じて足す (儀式化を避けるため最初から網羅を狙わない)
    - シナリオは **ゴール形式 (手順ではなく目的)** で書く。「どのボタンをクリックするか」ではなく「ユーザーが何を達成できる状態か」を記述する
 2. **`/ask-others` でセカンドオピニオン** (Gemini CLI + Codex CLI 並列) を取る
@@ -114,7 +115,7 @@ npm run build
 
 ## 計画書スケルトン (ローカルテンプレ復元用)
 
-ローカルに `.tmp/_plan-template.md` が無い環境 (clone 直後 / 別 worktree / CI など) では、以下をコピーして新しい計画書の起点にする。より詳しい注記付きテンプレは `.tmp/_plan-template.md` 側を参照 (存在すれば)。
+ローカルに `drafts/_plan-template.md` が無い環境 (clone 直後 / 別 worktree / CI など) では、以下をコピーして新しい計画書の起点にする。より詳しい注記付きテンプレは `drafts/_plan-template.md` 側を参照 (存在すれば)。
 
 ```markdown
 # {Issue 番号 / Phase 番号}: {タイトル}
