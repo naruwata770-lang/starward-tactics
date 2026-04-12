@@ -214,3 +214,35 @@ export const UNIT_DIRECTION_PICKER_FOCUS_RING_STROKE = '#fcd34d'
 
 /** focus ring の縁取り幅 */
 export const UNIT_DIRECTION_PICKER_FOCUS_RING_STROKE_WIDTH = 2
+
+// ---- Phase 8: ロック線 ----
+
+/** ロック線の stroke 幅 */
+export const LOCK_LINE_STROKE_WIDTH = 2
+
+/** ロック線の破線パターン */
+export const LOCK_LINE_DASH_ARRAY = '8 4'
+
+/**
+ * ロック線矢印マーカーのサイズ (userSpaceOnUse 単位)。
+ * markerWidth/markerHeight の両方にこの値を使う。
+ */
+export const LOCK_LINE_ARROW_SIZE = 10
+
+/**
+ * ロック線の胴体 (始点〜矢印付け根) の最小長さ。
+ * これより短いと破線パターンや marker の向きが不安定になるためスキップする。
+ * LOCK_LINE_ARROW_SIZE と同程度を目安に設定。
+ */
+export const LOCK_LINE_MIN_SHAFT_LENGTH = 8
+
+/**
+ * 味方側 (self/ally) のロック線の色。sky-400。
+ *
+ * 色はソースの陣営を示す (ターゲットとの関係ではない)。
+ * 味方→味方でも青、敵→敵でも赤になるのは仕様。
+ */
+export const LOCK_LINE_ALLY_COLOR = '#38bdf8'
+
+/** 敵側 (enemy1/enemy2) のロック線の色。red-500 */
+export const LOCK_LINE_ENEMY_COLOR = '#ef4444'

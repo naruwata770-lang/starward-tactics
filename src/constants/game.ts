@@ -18,6 +18,18 @@ import type {
 export const UNIT_IDS: readonly UnitId[] = ['self', 'ally', 'enemy1', 'enemy2']
 
 /**
+ * ユニットの陣営。ロック線の色分け・マーカー選択で使用 (Phase 8)。
+ *
+ * 'ally' = 味方側 (self / ally)、'enemy' = 敵側 (enemy1 / enemy2)。
+ */
+export type UnitSide = 'ally' | 'enemy'
+
+/** ユニット ID から陣営を判定する */
+export function getUnitSide(id: UnitId): UnitSide {
+  return id === 'self' || id === 'ally' ? 'ally' : 'enemy'
+}
+
+/**
  * 8 方向の度数リスト (0° = 上、時計回り 45° 刻み)。
  *
  * Phase 7 (Issue #8) で導入: DirectionPicker / UnitToken の矢印描画から参照する。
