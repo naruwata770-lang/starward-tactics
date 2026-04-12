@@ -43,7 +43,7 @@ export const LockTargetSelector = memo(function LockTargetSelector({
         onClick={() =>
           dispatch({ type: 'SET_LOCK_TARGET', unitId, target: null })
         }
-        className={`flex-1 rounded-md px-2 py-2 text-xs font-bold transition ${
+        className={`flex-1 cursor-pointer rounded-md px-2 py-2 text-xs font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-400 focus-visible:outline-offset-2 ${
           current === null
             ? 'bg-slate-200 text-slate-900'
             : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
@@ -63,7 +63,7 @@ export const LockTargetSelector = memo(function LockTargetSelector({
             }
             // text-black を使う理由: ally (#2563eb) は slate-900 だと AA 4.5:1 を割る。
             // 全ユニットカラーで 4.6+ をクリアするため純粋黒に統一 (UnitSelector と同じ方針)。
-            className={`flex-1 rounded-md px-2 py-2 text-xs font-bold text-black transition ${
+            className={`flex-1 cursor-pointer rounded-md px-2 py-2 text-xs font-bold text-black transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-400 focus-visible:outline-offset-2 ${
               isSelected
                 ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-950'
                 : 'opacity-70 hover:opacity-100'

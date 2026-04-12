@@ -69,7 +69,7 @@ export const CoreTypeSelector = memo(function CoreTypeSelector({
             }
             // text-black を使う理由: S 青 / C 紫 / その他ユニット色も含め、全コア色で
             // AA 4.5:1 を余裕をもってクリアするため (UnitSelector と同じ方針)。
-            className={`flex flex-col items-center justify-center gap-0.5 rounded-md px-2 py-2 text-black transition ${
+            className={`flex cursor-pointer flex-col items-center justify-center gap-0.5 rounded-md px-2 py-2 text-black transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-400 focus-visible:outline-offset-2 ${
               isSelected
                 ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-950'
                 : 'opacity-70 hover:opacity-100'
