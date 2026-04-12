@@ -2,7 +2,10 @@ import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
-export default defineConfig({
+export default defineConfig(() => ({
+  // GitHub Pages のプロジェクトページは /starward-tactics/ 配下でホストされるため、
+  // CI (GitHub Actions) でのみ base を設定する。ローカルでは / のまま。
+  base: process.env.GITHUB_ACTIONS ? '/starward-tactics/' : '/',
   plugins: [react(), tailwindcss()],
   test: {
     // Inspector 配下の React コンポーネント (CostSelector / LockTargetSelector 等) の
@@ -10,4 +13,4 @@ export default defineConfig({
     // reducer などの純粋ロジックテストは DOM を参照しないのでこのままで動く。
     environment: 'happy-dom',
   },
-})
+}))
