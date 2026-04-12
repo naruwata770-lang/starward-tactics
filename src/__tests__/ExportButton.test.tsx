@@ -12,7 +12,7 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { VIEW_BOX_SIZE } from '../constants/board'
+import { EXPORT_SCALE, VIEW_BOX_SIZE } from '../constants/board'
 import { ExportButton } from '../components/toolbar/ExportButton'
 import {
   buildExportFilename,
@@ -34,6 +34,7 @@ describe('prepareExportSvg', () => {
     svg.setAttribute('viewBox', `0 0 ${VIEW_BOX_SIZE} ${VIEW_BOX_SIZE}`)
     svg.setAttribute('width', '100%')
     svg.setAttribute('height', '100%')
+    svg.setAttribute('overflow', 'visible')
 
     const circle = document.createElementNS(
       'http://www.w3.org/2000/svg',
@@ -86,12 +87,21 @@ describe('prepareExportSvg', () => {
     expect(clone.getAttribute('xmlns')).toBe('http://www.w3.org/2000/svg')
   })
 
-  it('sets width and height to VIEW_BOX_SIZE (not 100%)', () => {
+  it('sets width and height to export size (VIEW_BOX_SIZE * EXPORT_SCALE)', () => {
     const svg = createTestSvg()
     const clone = prepareExportSvg(svg)
+    const exportSize = VIEW_BOX_SIZE * EXPORT_SCALE
 
-    expect(clone.getAttribute('width')).toBe(String(VIEW_BOX_SIZE))
-    expect(clone.getAttribute('height')).toBe(String(VIEW_BOX_SIZE))
+    expect(clone.getAttribute('width')).toBe(String(exportSize))
+    expect(clone.getAttribute('height')).toBe(String(exportSize))
+  })
+
+  it('removes overflow attribute', () => {
+    const svg = createTestSvg()
+    expect(svg.getAttribute('overflow')).toBe('visible')
+
+    const clone = prepareExportSvg(svg)
+    expect(clone.getAttribute('overflow')).toBeNull()
   })
 
   it('preserves viewBox', () => {

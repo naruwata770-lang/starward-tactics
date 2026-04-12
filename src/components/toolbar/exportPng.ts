@@ -6,10 +6,11 @@
  * Canvas/Blob 依存の exportBoardAsPng はブラウザ手動検証で担保する。
  */
 
-import { EXPORT_SCALE, VIEW_BOX_SIZE } from '../../constants/board'
-
-/** Board.tsx の <svg> に付与した id。実装契約として aria-label ではなく id を使う */
-const BOARD_SVG_ID = 'tactics-board-svg'
+import {
+  BOARD_SVG_ID,
+  EXPORT_SCALE,
+  VIEW_BOX_SIZE,
+} from '../../constants/board'
 
 /**
  * export 用 SVG クローンを生成する。Canvas 非依存なのでテスト可能。
@@ -17,15 +18,19 @@ const BOARD_SVG_ID = 'tactics-board-svg'
  * 1. cloneNode(true) でオリジナルを壊さずコピー
  * 2. data-no-export="true" 要素を除去 (DirectionPicker 等の UI 専用要素)
  * 3. xmlns を明示 (XMLSerializer が省略することがある)
- * 4. width/height を 100% → VIEW_BOX_SIZE に固定
- *    (standalone SVG として Image に食わせるとき 100% だと解釈が不安定)
+ * 4. width/height を export サイズに固定
+ *    (ブラウザは Image 読み込み時に SVG の width/height でラスタライズするため、
+ *     Canvas サイズと揃えないと引き伸ばしでぼやける)
+ * 5. overflow を除去 (DirectionPicker 用の visible は export では不要)
  */
 export function prepareExportSvg(svg: SVGSVGElement): SVGSVGElement {
   const clone = svg.cloneNode(true) as SVGSVGElement
   clone.querySelectorAll('[data-no-export="true"]').forEach((el) => el.remove())
   clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
-  clone.setAttribute('width', String(VIEW_BOX_SIZE))
-  clone.setAttribute('height', String(VIEW_BOX_SIZE))
+  const exportSize = VIEW_BOX_SIZE * EXPORT_SCALE
+  clone.setAttribute('width', String(exportSize))
+  clone.setAttribute('height', String(exportSize))
+  clone.removeAttribute('overflow')
   return clone
 }
 

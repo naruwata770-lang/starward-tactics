@@ -18,8 +18,8 @@ export function ExportButton() {
     setIsExporting(true)
     try {
       await exportBoardAsPng()
-    } catch {
-      // PNG 生成失敗は致命的ではないので握りつぶす
+    } catch (e) {
+      console.error('PNG export failed:', e)
     } finally {
       setIsExporting(false)
     }

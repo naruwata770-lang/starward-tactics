@@ -254,3 +254,6 @@ export const LOCK_LINE_ENEMY_COLOR = '#ef4444'
  * Canvas サイズは VIEW_BOX_SIZE * EXPORT_SCALE で算出。
  */
 export const EXPORT_SCALE = 2
+
+/** Board.tsx の <svg> に付与する id。exportPng.ts の querySelector で参照する */
+export const BOARD_SVG_ID = 'tactics-board-svg'
