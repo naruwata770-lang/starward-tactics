@@ -30,7 +30,7 @@
 
 ## 4. Spec is the default, but user evidence overrides spec
 
-- **問い**: 「`.tmp/<phaseN>-plan.md` または `.tmp/<issue番号>-<topic>-plan.md` の検証シナリオを満たしているか？ 満たしているのに UX が悪い場合、シナリオの方を更新する用意はあるか？」
+- **問い**: 「`drafts/<phaseN>-plan.md` または `drafts/<issue番号>-<topic>-plan.md` の検証シナリオを満たしているか？ 満たしているのに UX が悪い場合、シナリオの方を更新する用意はあるか？」
 - **適用しない例**: シナリオに明示されたエッジケースを優先する場合
 - **証拠**: シナリオと手動触り (後続 Issue #18 γ1 で導入予定の uxaudit があれば併用) の結果が一致
 - **✅ Positive**: Phase 5 レビューで race condition を発見し、シナリオを「popstate で pending デバウンスが cancel される」に更新してから直した

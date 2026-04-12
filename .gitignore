@@ -23,7 +23,8 @@ dist-ssr
 *.sln
 *.sw?
 
-# Temp files (e.g. ask-others / review skill prompts)
+# Temp files (e.g. review skill prompts, ux-review prompts)
+# 計画書は drafts/ に置く (.gitignore 対象外。Gemini CLI 等が読めるようにするため)
 .tmp/
 
 # Claude Code 設定の責務分離:
