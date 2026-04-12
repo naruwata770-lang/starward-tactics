@@ -1,8 +1,7 @@
 /**
  * SVG <defs>: 盤面で使い回す pattern / marker などを定義する。
  *
- * 現状は GRID_SIZE のグリッド pattern のみ。Phase 8 (ロック線) でロックオンの
- * 矢印 marker を追加予定。
+ * グリッド pattern と Phase 8 で追加したロック線の矢印 marker を定義。
  *
  * 注意: ここで定義する色は SVG 属性ベース (fill/stroke)。Tailwind class は
  * 使わない (Phase 9 の PNG 出力で外部 CSS が解決されないため)。

@@ -17,7 +17,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Board } from '../components/board/Board'
 import { BoardProvider } from '../state/BoardProvider'
 import { INITIAL_BOARD_STATE } from '../constants/game'
-import type { BoardState } from '../types/board'
+import type { BoardState, UnitId } from '../types/board'
 import { setupSvgPointerStubs } from './helpers/svgStubs'
 
 afterEach(() => {
@@ -28,13 +28,13 @@ afterEach(() => {
 
 /** lockTarget を設定した初期状態を作るヘルパー */
 function stateWith(
-  overrides: Partial<Record<string, { lockTarget: string | null }>>,
+  overrides: Partial<Record<UnitId, { lockTarget: UnitId | null }>>,
 ): BoardState {
   const state = structuredClone(INITIAL_BOARD_STATE)
   for (const [id, patch] of Object.entries(overrides)) {
-    const unit = state.units[id as keyof typeof state.units]
+    const unit = state.units[id as UnitId]
     if (unit && patch) {
-      unit.lockTarget = patch.lockTarget as typeof unit.lockTarget
+      unit.lockTarget = patch.lockTarget
     }
   }
   return state

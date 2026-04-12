@@ -231,7 +231,7 @@ export const LOCK_LINE_ARROW_SIZE = 10
 
 /**
  * ロック線の胴体 (始点〜矢印付け根) の最小長さ。
- * これより短いと破線パターンや marker の向きが不安定になるためスキップする。
+ * この値以下だと破線パターンや marker の向きが不安定になるためスキップする。
  * LOCK_LINE_ARROW_SIZE と同程度を目安に設定。
  */
 export const LOCK_LINE_MIN_SHAFT_LENGTH = 8

@@ -48,7 +48,7 @@ export function getLockLineGeometry(
   const dy = target.y - source.y
   const distance = Math.sqrt(dx * dx + dy * dy)
 
-  // 距離が足りない: 円同士の隙間が MIN_SHAFT_LENGTH 未満
+  // 距離が足りない: 円同士の隙間が MIN_SHAFT_LENGTH 以下
   if (distance <= UNIT_RADIUS * 2 + LOCK_LINE_MIN_SHAFT_LENGTH) {
     return null
   }
