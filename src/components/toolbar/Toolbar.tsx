@@ -9,6 +9,7 @@
  * なので明示ボタンは不要。Phase 5 では追加しない。
  */
 
+import { ExportButton } from './ExportButton'
 import { RedoButton } from './RedoButton'
 import { ResetButton } from './ResetButton'
 import { UndoButton } from './UndoButton'
@@ -21,6 +22,7 @@ export function Toolbar() {
         <UndoButton />
         <RedoButton />
         <ResetButton />
+        <ExportButton />
       </div>
     </div>
   )

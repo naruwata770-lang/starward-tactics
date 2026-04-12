@@ -41,6 +41,7 @@ export function Board() {
 
   return (
     <svg
+      id="tactics-board-svg"
       viewBox={`0 0 ${VIEW_BOX_SIZE} ${VIEW_BOX_SIZE}`}
       xmlns="http://www.w3.org/2000/svg"
       width="100%"

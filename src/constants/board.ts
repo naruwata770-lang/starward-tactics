@@ -246,3 +246,11 @@ export const LOCK_LINE_ALLY_COLOR = '#38bdf8'
 
 /** 敵側 (enemy1/enemy2) のロック線の色。red-500 */
 export const LOCK_LINE_ENEMY_COLOR = '#ef4444'
+
+// ---- Phase 9: PNG 出力 ----
+
+/**
+ * PNG 出力時の倍率。2x で Retina 相当の 1440×1440 を生成する。
+ * Canvas サイズは VIEW_BOX_SIZE * EXPORT_SCALE で算出。
+ */
+export const EXPORT_SCALE = 2
