@@ -522,4 +522,139 @@ describe('useDrag', () => {
       expect(commitCounts.enemy2 - baseline.enemy2).toBe(0)
     })
   })
+
+  /**
+   * getScreenCTM null cleanup テスト (Issue #29 2番).
+   *
+   * 背景:
+   * PR #25 で「move 中に getScreenCTM() が null を返したら endDrag('snapback') で
+   * session を消す」修正を入れた (Gemini 1 周目指摘 [中])。既存テストは
+   * pointercancel / lostpointercapture の cleanup は確認しているが、move 中の
+   * null cleanup 経路は直接叩いていなかった。
+   *
+   * 検知方法:
+   * - pointerdown → pointermove (正常) → getScreenCTM spy を null に差し替え
+   *   → pointermove → snapback が走り、座標が初期値に戻り history は汚れない
+   * - cleanup 後に再度 pointerdown → ドラッグ成功で session が正しくクリアされた
+   *   ことを確認
+   */
+  describe('getScreenCTM null during move (Issue #29 2番)', () => {
+    it('getScreenCTM returning null during move triggers snapback without history', () => {
+      render(
+        <BoardProvider>
+          <DraggableHarness unitId="self" />
+          <Probe />
+        </BoardProvider>,
+      )
+      const target = screen.getByTestId('drag-target-self')
+      const initialX = Number(screen.getByTestId('self-x').textContent)
+      const initialY = Number(screen.getByTestId('self-y').textContent)
+
+      // pointerdown: 正常に開始
+      fireEvent.pointerDown(target, {
+        pointerId: 1,
+        clientX: 200,
+        clientY: 200,
+      })
+
+      // 1 回目の pointermove: 正常 (座標が動く)
+      fireEvent.pointerMove(target, {
+        pointerId: 1,
+        clientX: 300,
+        clientY: 350,
+      })
+      expect(Number(screen.getByTestId('self-x').textContent)).not.toBe(
+        initialX,
+      )
+
+      // getScreenCTM を null に差し替え (SVG が DOM から外れるケースを再現)
+      const ctmSpy = vi.spyOn(SVGGraphicsElement.prototype, 'getScreenCTM')
+      ctmSpy.mockReturnValue(null)
+
+      // 2 回目の pointermove: getScreenCTM が null → snapback ルートに入る
+      fireEvent.pointerMove(target, {
+        pointerId: 1,
+        clientX: 400,
+        clientY: 450,
+      })
+
+      // snapback: 開始位置に戻る
+      expect(Number(screen.getByTestId('self-x').textContent)).toBe(initialX)
+      expect(Number(screen.getByTestId('self-y').textContent)).toBe(initialY)
+      // history は汚れない
+      expect(screen.getByTestId('past-len').textContent).toBe('0')
+    })
+
+    it('after null cleanup, a new drag session can start successfully', () => {
+      render(
+        <BoardProvider>
+          <DraggableHarness unitId="self" />
+          <Probe />
+        </BoardProvider>,
+      )
+      const target = screen.getByTestId('drag-target-self')
+      const initialX = Number(screen.getByTestId('self-x').textContent)
+
+      // 1 回目のドラッグ: null cleanup で強制終了
+      fireEvent.pointerDown(target, {
+        pointerId: 1,
+        clientX: 200,
+        clientY: 200,
+      })
+      fireEvent.pointerMove(target, {
+        pointerId: 1,
+        clientX: 300,
+        clientY: 300,
+      })
+
+      const ctmSpy = vi.spyOn(SVGGraphicsElement.prototype, 'getScreenCTM')
+      ctmSpy.mockReturnValue(null)
+      fireEvent.pointerMove(target, {
+        pointerId: 1,
+        clientX: 400,
+        clientY: 400,
+      })
+      // snapback 完了
+      expect(Number(screen.getByTestId('self-x').textContent)).toBe(initialX)
+
+      // getScreenCTM を正常に戻す (setupSvgPointerStubs の恒等行列)
+      ctmSpy.mockImplementation(function () {
+        return {
+          a: 1,
+          b: 0,
+          c: 0,
+          d: 1,
+          e: 0,
+          f: 0,
+          inverse() {
+            return this
+          },
+        } as unknown as DOMMatrix
+      })
+
+      // 2 回目のドラッグ: session が正しくクリアされていれば成功する
+      fireEvent.pointerDown(target, {
+        pointerId: 1,
+        clientX: 200,
+        clientY: 200,
+      })
+      fireEvent.pointerMove(target, {
+        pointerId: 1,
+        clientX: 350,
+        clientY: 350,
+      })
+      // 座標が動いている = 新しい session が正常に開始された
+      expect(Number(screen.getByTestId('self-x').textContent)).not.toBe(
+        initialX,
+      )
+
+      fireEvent.pointerUp(target, {
+        pointerId: 1,
+        clientX: 350,
+        clientY: 350,
+      })
+      // 1 回目は null cleanup (history 不変)、2 回目は正常 commit → 履歴 1 件
+      expect(screen.getByTestId('past-len').textContent).toBe('1')
+    })
+  })
 })
