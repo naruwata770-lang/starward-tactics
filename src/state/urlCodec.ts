@@ -423,8 +423,16 @@ export function encodeV2(state: BoardState): string {
  *
  * 整合性 (characterId vs hp など) の補正は decoder ではなく `normalizeBoardState`
  * 側で行う (関心の分離; Codex[共通・高] 反映)。
+ *
+ * `warnedUnknownCodes` は Issue #65 の重複 warn 抑制用。`decodeV2` が 1 呼び出しの中で
+ * 共有する Set を渡し、同じ未知 code に対する DEV warn を 1 回に集約する。decode 呼び出し
+ * 境界でリセットされるため、別 URL に切り替えた時は新しい運用ミスとして改めて warn が出る。
  */
-function decodeV2Unit(fields: string[], id: UnitId): Unit | null {
+function decodeV2Unit(
+  fields: string[],
+  id: UnitId,
+  warnedUnknownCodes?: Set<string>,
+): Unit | null {
   if (fields.length < V2_FIXED_FIELD_COUNT) return null
   const fixed = decodeFixedFields(fields.slice(0, V2_FIXED_FIELD_COUNT), id)
   if (fixed === null) return null
@@ -438,8 +446,12 @@ function decodeV2Unit(fields: string[], id: UnitId): Unit | null {
       characterId = character.id
     } else if (import.meta.env.DEV) {
       // 未知 code: 運用ミス (機体削除 / code 改名) の早期検出のため DEV 環境で warn。
-      // ユーザーには見せず characterId=null に fallback (Issue #55 採用方針)
-      console.warn(`[urlCodec] unknown characterCode: ${codeRaw}`)
+      // ユーザーには見せず characterId=null に fallback (Issue #55 採用方針)。
+      // 同じ code は 1 decode 呼び出しあたり 1 回だけ warn する (Issue #65)
+      if (!warnedUnknownCodes?.has(codeRaw)) {
+        console.warn(`[urlCodec] unknown characterCode: ${codeRaw}`)
+        warnedUnknownCodes?.add(codeRaw)
+      }
     }
   }
 
@@ -555,10 +567,13 @@ export function decodeV2(payload: string): BoardState | null {
   const unitChunks = unitsRaw.split('|')
   if (unitChunks.length !== UNIT_ORDER.length) return null
 
+  // Issue #65: 未知 characterCode の DEV warn を 1 decode 呼び出しあたり code ごと 1 回に集約。
+  // Set はこの呼び出し内だけで共有し、呼び出し間ではリセットされる (別 URL の運用ミスを見逃さないため)
+  const warnedUnknownCodes = new Set<string>()
   const units: Partial<Record<UnitId, Unit>> = {}
   for (let i = 0; i < UNIT_ORDER.length; i++) {
     const id = UNIT_ORDER[i]
-    const unit = decodeV2Unit(unitChunks[i].split(','), id)
+    const unit = decodeV2Unit(unitChunks[i].split(','), id, warnedUnknownCodes)
     if (unit === null) return null
     units[id] = unit
   }
