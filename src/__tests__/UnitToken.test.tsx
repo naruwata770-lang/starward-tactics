@@ -48,6 +48,8 @@ function makeStateWithDirection(direction: Direction): BoardState {
     coreType: 'B',
     lockTarget: null,
     characterId: null,
+    hp: null,
+    boost: 100,
   })
   return {
     units: {
@@ -236,5 +238,114 @@ describe('UnitToken: direction arrow', () => {
     // 浮動小数の端数を許容して 0.01 マージン
     expect(d).toBeLessThanOrEqual(UNIT_DIRECTION_LINE_OUTER + 0.01)
     expect(d).toBeLessThanOrEqual(safeRadius - UNIT_DIRECTION_ARROW_HEAD_LENGTH + 0.01)
+  })
+})
+
+describe('UnitToken: HP/Boost stack (Issue #58)', () => {
+  function makeWithHpBoost(opts: {
+    hp?: number | null
+    boost?: number
+    characterId?: string | null
+  } = {}): BoardState {
+    const base = makeStateWithDirection(0)
+    const characterId =
+      opts.characterId !== undefined ? opts.characterId : CHARACTERS[0].id
+    return {
+      units: {
+        ...base.units,
+        self: {
+          ...base.units.self,
+          characterId,
+          cost: characterId !== null ? CHARACTERS[0].cost : base.units.self.cost,
+          hp: opts.hp !== undefined ? opts.hp : (characterId !== null ? CHARACTERS[0].maxHp : null),
+          boost: opts.boost !== undefined ? opts.boost : 100,
+        },
+      },
+    }
+  }
+
+  it('renders HP "{remain} / {max}" text when character is set and showHpBoost is ON (default)', () => {
+    const state = makeWithHpBoost({ hp: 200 })
+    const { container } = render(
+      <BoardProvider initialState={state}>
+        <svg viewBox="0 0 720 720">
+          <UnitToken unit={state.units.self} />
+        </svg>
+      </BoardProvider>,
+    )
+    // 「200 / 680」のような分数テキストが含まれる
+    const text = container.textContent ?? ''
+    expect(text).toContain(`200 / ${CHARACTERS[0].maxHp}`)
+  })
+
+  it('renders Boost "{value} %" text', () => {
+    const state = makeWithHpBoost({ hp: 200, boost: 75 })
+    const { container } = render(
+      <BoardProvider initialState={state}>
+        <svg viewBox="0 0 720 720">
+          <UnitToken unit={state.units.self} />
+        </svg>
+      </BoardProvider>,
+    )
+    const text = container.textContent ?? ''
+    expect(text).toContain('75 %')
+  })
+
+  it('hp=0 (撃破) renders opacity=0.45 on the outer <g> (Codex/Gemini[共通] 反映)', () => {
+    const state = makeWithHpBoost({ hp: 0 })
+    const { container } = render(
+      <BoardProvider initialState={state}>
+        <svg viewBox="0 0 720 720">
+          <UnitToken unit={state.units.self} />
+        </svg>
+      </BoardProvider>,
+    )
+    // 最外 <g> は viewBox の <svg> 直下の <g> (touchAction を持つもの)
+    const outerG = container.querySelector('svg > g')
+    expect(outerG).not.toBeNull()
+    const opacity = outerG!.getAttribute('opacity')
+    expect(opacity).toBe('0.45')
+  })
+
+  it('hp=null (機体未選択) does NOT trigger destroyed opacity (must distinguish 0 vs null)', () => {
+    const state = makeWithHpBoost({ characterId: null, hp: null })
+    const { container } = render(
+      <BoardProvider initialState={state}>
+        <svg viewBox="0 0 720 720">
+          <UnitToken unit={state.units.self} />
+        </svg>
+      </BoardProvider>,
+    )
+    const outerG = container.querySelector('svg > g')
+    expect(outerG?.getAttribute('opacity')).toBe('1')
+  })
+
+  it('hp=0 includes "(撃破)" in the title for accessibility', () => {
+    const state = makeWithHpBoost({ hp: 0 })
+    const { container } = render(
+      <BoardProvider initialState={state}>
+        <svg viewBox="0 0 720 720">
+          <UnitToken unit={state.units.self} />
+        </svg>
+      </BoardProvider>,
+    )
+    const title = container.querySelector('title')?.textContent ?? ''
+    expect(title).toContain('(撃破)')
+  })
+
+  it('does NOT render the HP stack when characterId is null (機体未選択時は HP 表示なし)', () => {
+    const state = makeWithHpBoost({ characterId: null, hp: null, boost: 80 })
+    const { container } = render(
+      <BoardProvider initialState={state}>
+        <svg viewBox="0 0 720 720">
+          <UnitToken unit={state.units.self} />
+        </svg>
+      </BoardProvider>,
+    )
+    const text = container.textContent ?? ''
+    // HP の分数テキストは出ない
+    expect(text).not.toMatch(/\d+ \/ \d+/)
+    // Boost は機体不問なので出る
+    expect(text).toContain('80 %')
   })
 })

@@ -13,9 +13,11 @@
 import type { ReactNode } from 'react'
 
 import { useBoard, useSelection } from '../../state/BoardContext'
+import { BoostEditor } from './BoostEditor'
 import { CharacterSelector } from './CharacterSelector'
 import { CoreTypeSelector } from './CoreTypeSelector'
 import { CostSelector } from './CostSelector'
+import { HpEditor } from './HpEditor'
 import { LockTargetSelector } from './LockTargetSelector'
 import { StarburstGauge } from './StarburstGauge'
 import { UnitSelector } from './UnitSelector'
@@ -81,6 +83,18 @@ export function InspectorPanel() {
               unitId={selectedUnit}
               current={unit.coreType}
             />
+          </Section>
+
+          <Section title="HP">
+            <HpEditor
+              unitId={selectedUnit}
+              characterId={unit.characterId}
+              hp={unit.hp}
+            />
+          </Section>
+
+          <Section title="Boost">
+            <BoostEditor unitId={selectedUnit} boost={unit.boost} />
           </Section>
 
           <Section title="ロック対象">

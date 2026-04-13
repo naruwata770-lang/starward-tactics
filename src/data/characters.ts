@@ -34,6 +34,20 @@
  *
  * 検索フィルタが `name + shortName + searchTokens` を部分一致で見るので、
  * 別名 / 読み仮名 / アルファベット表記 などを入れる。空配列でも OK。
+ *
+ * ============================================================
+ *  maxHp (Issue #58)
+ * ============================================================
+ *
+ * 各機体の最大 HP 値。盤面トークンに「残 HP / 最大 HP」を表示する用途で使う。
+ *
+ * ⚠️ 暫定値: 現状はコスト別の代表値で固定している (cost 3=680 / 2.5=620 /
+ * 2=560 / 1.5=480)。EXVS 系の標準的な耐久値を借りた近似で、正確な機体個別値
+ * (公式 wiki / ゲーム内データ) ではない。
+ *
+ * 個別精緻化は別 issue で行う方針 (Issue #58 セカンドオピニオン Codex/Gemini[共通] 反映):
+ * - PR/リリースノートにも placeholder である旨を記載する
+ * - データソースが固まったら、機体ごとに上書きする (構造変更は不要)
  */
 
 import type { Cost } from '../types/board'
@@ -43,8 +57,30 @@ export interface Character {
   name: string
   shortName: string
   cost: Cost
+  /** URL に乗る 2 文字短縮識別子 (永続。変更厳禁) */
   code: string
+  /** 最大 HP (placeholder; 詳細は冒頭コメントの maxHp 節を参照) */
+  maxHp: number
   searchTokens: readonly string[]
+}
+
+/**
+ * cost 別の placeholder maxHp。
+ * Issue #58 で機体個別 maxHp が判明するまでの暫定値として使う。
+ *
+ * 数値の根拠: EXVS 系の標準耐久値 (cost 3=680, 2.5=620, 2=560, 1.5=480)。
+ * 個別実測値が判明したら CHARACTERS の各エントリの maxHp を直接書き換える
+ * (この lookup は単に「未指定時のデフォルト」を計算しやすくするためのもの)。
+ */
+const DEFAULT_MAX_HP_BY_COST: Readonly<Record<number, number>> = Object.freeze({
+  3: 680,
+  2.5: 620,
+  2: 560,
+  1.5: 480,
+})
+
+function defaultMaxHp(cost: Cost): number {
+  return DEFAULT_MAX_HP_BY_COST[cost]
 }
 
 /**
@@ -55,8 +91,28 @@ export interface Character {
  *   25 コスト → cost: 2.5
  *   20 コスト → cost: 2
  *   15 コスト → cost: 1.5
+ *
+ * 編集規約: 各エントリは `id, name, shortName, cost, code, searchTokens` の
+ * 6 フィールドのみ書く。`maxHp` は cost からデフォルト値を自動付与する
+ * (Issue #58)。機体個別の正確な値が判明したら、そのエントリだけ
+ * `maxHp: <value>` を末尾に追加すると個別上書きできる
+ * (`SEED_TO_CHARACTER` を参照)。
  */
-export const CHARACTERS: readonly Character[] = [
+type CharacterSeed = Omit<Character, 'maxHp'> & { maxHp?: number }
+
+function seedToCharacter(seed: CharacterSeed): Character {
+  return {
+    id: seed.id,
+    name: seed.name,
+    shortName: seed.shortName,
+    cost: seed.cost,
+    code: seed.code,
+    maxHp: seed.maxHp ?? defaultMaxHp(seed.cost),
+    searchTokens: seed.searchTokens,
+  }
+}
+
+const CHARACTER_SEEDS: readonly CharacterSeed[] = [
   // ---- cost 3 (30コスト) ----
   { id: 'kerubim', name: 'ケルビム', shortName: 'ケルビ', cost: 3, code: '01', searchTokens: ['kerubim'] },
   { id: 'hikari', name: 'ヒカリ', shortName: 'ヒカリ', cost: 3, code: '02', searchTokens: ['hikari'] },
@@ -132,6 +188,8 @@ export const CHARACTERS: readonly Character[] = [
   { id: 'snow-wall', name: 'スノーウォル', shortName: 'スノー', cost: 1.5, code: '66', searchTokens: ['snow', 'wall'] },
   { id: 'yamin', name: 'ヤミン', shortName: 'ヤミン', cost: 1.5, code: '67', searchTokens: ['yamin'] },
 ] as const
+
+export const CHARACTERS: readonly Character[] = CHARACTER_SEEDS.map(seedToCharacter)
 
 /**
  * code → Character の lookup テーブル。

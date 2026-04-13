@@ -25,6 +25,7 @@ import {
   encodeV1,
   encodeV2,
   isInitialEncoded,
+  normalizeBoardState,
 } from '../state/urlCodec'
 import type { BoardState, Unit } from '../types/board'
 
@@ -64,6 +65,8 @@ describe('urlCodec', () => {
             coreType: 'F',
             lockTarget: 'enemy1',
             characterId: null,
+            hp: null,
+            boost: 100,
           },
           ally: {
             id: 'ally',
@@ -75,6 +78,8 @@ describe('urlCodec', () => {
             coreType: 'S',
             lockTarget: 'enemy2',
             characterId: null,
+            hp: null,
+            boost: 100,
           },
           enemy1: {
             id: 'enemy1',
@@ -86,6 +91,8 @@ describe('urlCodec', () => {
             coreType: 'M',
             lockTarget: 'self',
             characterId: null,
+            hp: null,
+            boost: 100,
           },
           enemy2: {
             id: 'enemy2',
@@ -97,6 +104,8 @@ describe('urlCodec', () => {
             coreType: 'D',
             lockTarget: null,
             characterId: null,
+            hp: null,
+            boost: 100,
           },
         },
       }
@@ -306,9 +315,13 @@ describe('urlCodec', () => {
 
   describe('v2 codec', () => {
     it('round-trips via decode(encode(state))', () => {
+      // characterId と hp を整合させた状態 (normalize 後の正規形) で round-trip。
+      // characterId set + hp=null は不整合状態なので、decode 後の normalize で
+      // hp=maxHp に補正されてしまう (Issue #58 仕様)。
       const state = withUnit(INITIAL_BOARD_STATE, {
         characterId: CHARACTERS[0].id,
         cost: CHARACTERS[0].cost,
+        hp: CHARACTERS[0].maxHp,
       })
       expect(decode(encode(state))).toEqual(state)
     })
@@ -342,14 +355,20 @@ describe('urlCodec', () => {
       expect(state?.units.self.characterId).toBeNull()
     })
 
-    it('decodeV2 ignores extra trailing fields (forward compat for #A hp/boost)', () => {
-      // 9, 10 番目のフィールドは未来の hp/boost を想定して ignore
+    it('decodeV2 ignores 11+ trailing fields (forward compat for future schema additions)', () => {
+      // Issue #58 で 9 番目 = hp, 10 番目 = boost を採用したため、forward compat
+      // 範囲は 11 番目以降に縮まる。9 番目 500 / 10 番目 88 は valid な値で、
+      // 11 番目以降の "futureA" は ignore されることを確認する。
+      // (decodeV2 単体では normalize は通らないので raw 値が出る点に注意。
+      //  normalize の挙動は別 describe `normalizeBoardState` で検証する。)
       const fixed = '260,460,0,d,n,B,_'
       const code = CHARACTERS[0].code
-      const payload = `u=${fixed},${code},9999,8888|${fixed},|${fixed},|${fixed},`
+      const payload = `u=${fixed},${code},500,88,futureA|${fixed},|${fixed},|${fixed},`
       const state = decodeV2(payload)
       expect(state).not.toBeNull()
       expect(state?.units.self.characterId).toBe(CHARACTERS[0].id)
+      expect(state?.units.self.hp).toBe(500)
+      expect(state?.units.self.boost).toBe(88)
     })
 
     it('decodeV2 ignores unknown prefix sections (forward compat)', () => {
@@ -420,6 +439,241 @@ describe('urlCodec', () => {
       expect(decoded?.units.ally.characterId).toBeNull()
       expect(decoded?.units.enemy1.characterId).toBeNull()
       expect(decoded?.units.enemy2.characterId).toBeNull()
+    })
+  })
+
+  // ============================================================
+  //  Issue #58: hp / boost フィールド
+  // ============================================================
+
+  describe('Issue #58: v1 → v2 正規化 (hp=null, boost=100 のデフォルト注入)', () => {
+    // 既知の v1 raw payload を hardcode (Codex 提案[共通・中] 反映:
+    // encoder を経由しないことで「encoder のバグで test が見えない回帰」を防ぐ)。
+    const V1_FIXED_PAYLOAD =
+      '260,460,0,d,n,B,_|460,460,0,d,n,B,_|260,260,4,d,n,B,_|460,260,4,d,n,B,_'
+
+    it('v1 URL を開いたら 全ユニット hp=null / boost=100 で復元される', () => {
+      const v1Url = `v1.${b64url(V1_FIXED_PAYLOAD)}`
+      const decoded = decode(v1Url)
+      expect(decoded).not.toBeNull()
+      for (const id of ['self', 'ally', 'enemy1', 'enemy2'] as const) {
+        expect(decoded?.units[id].hp).toBeNull()
+        expect(decoded?.units[id].boost).toBe(100)
+      }
+    })
+
+    it('decodeV1Unit が hp=null / boost=100 を直接付与する', () => {
+      const u = decodeV1Unit(['260', '460', '0', 'd', 'n', 'B', '_'], 'self')
+      expect(u).not.toBeNull()
+      expect(u?.hp).toBeNull()
+      expect(u?.boost).toBe(100)
+    })
+  })
+
+  describe('Issue #58: v2 末尾 hp/boost フィールドの trailing optional', () => {
+    const FIXED_SELF = '260,460,0,d,n,B,_'
+    const FIXED_ALLY = '460,460,0,d,n,B,_'
+    const FIXED_E1 = '260,260,4,d,n,B,_'
+    const FIXED_E2 = '460,260,4,d,n,B,_'
+    function payload(self: string, ally = `${FIXED_ALLY},`, e1 = `${FIXED_E1},`, e2 = `${FIXED_E2},`) {
+      return `u=${self}|${ally}|${e1}|${e2}`
+    }
+
+    it('8 fields (hp/boost 省略) → hp=null, boost=100', () => {
+      const state = decodeV2(payload(`${FIXED_SELF},`))
+      expect(state).not.toBeNull()
+      expect(state?.units.self.hp).toBeNull()
+      expect(state?.units.self.boost).toBe(100)
+    })
+
+    it('9 fields (hp あり, boost 省略) → boost=100', () => {
+      const state = decodeV2(payload(`${FIXED_SELF},,400`))
+      expect(state).not.toBeNull()
+      // self は characterId 空文字 → null。hp は 9 番目 (index 8) = "400"
+      // payload の 9 番目は "400" だが、上の payload 関数は characterCode 込みで
+      // 数えると `260,460,0,d,n,B,_,,400` で 9 fields。これは characterCode="" + hp="400"
+      expect(state?.units.self.characterId).toBeNull()
+      expect(state?.units.self.hp).toBe(400)
+      expect(state?.units.self.boost).toBe(100)
+    })
+
+    it('10 fields (hp 空文字, boost あり) → hp=null, boost=値', () => {
+      const state = decodeV2(payload(`${FIXED_SELF},,,80`))
+      expect(state).not.toBeNull()
+      expect(state?.units.self.hp).toBeNull()
+      expect(state?.units.self.boost).toBe(80)
+    })
+
+    it('10 fields (hp/boost 両方あり) → どちらも反映', () => {
+      const state = decodeV2(payload(`${FIXED_SELF},,500,42`))
+      expect(state).not.toBeNull()
+      expect(state?.units.self.hp).toBe(500)
+      expect(state?.units.self.boost).toBe(42)
+    })
+
+    it('reject: hp が非整数 ("abc")', () => {
+      expect(decodeV2(payload(`${FIXED_SELF},,abc`))).toBeNull()
+    })
+
+    it('reject: hp が範囲外 (-1 / 10000)', () => {
+      expect(decodeV2(payload(`${FIXED_SELF},,-1`))).toBeNull()
+      expect(decodeV2(payload(`${FIXED_SELF},,10000`))).toBeNull()
+    })
+
+    it('reject: boost が範囲外 (101)', () => {
+      expect(decodeV2(payload(`${FIXED_SELF},,400,101`))).toBeNull()
+    })
+
+    it('reject: boost が非整数 ("xyz")', () => {
+      expect(decodeV2(payload(`${FIXED_SELF},,400,xyz`))).toBeNull()
+    })
+
+    it('hp=0 (撃破) は hp=null と完全に区別される (Codex/Gemini[共通・高] 反映)', () => {
+      // hp=0 は数値 0 として decode され、null になってはいけない
+      const state = decodeV2(payload(`${FIXED_SELF},,0`))
+      expect(state).not.toBeNull()
+      expect(state?.units.self.hp).toBe(0)
+      expect(state?.units.self.hp).not.toBeNull()
+      // hp が空文字なら null (こちらは null)
+      const state2 = decodeV2(payload(`${FIXED_SELF},,`))
+      expect(state2?.units.self.hp).toBeNull()
+    })
+  })
+
+  describe('Issue #58: encoder 正規形ルール (Codex[共通・高] 反映)', () => {
+    it('hp=null && boost=100 → 8 fields (省略形)', () => {
+      const payload = encodeV2(INITIAL_BOARD_STATE)
+      const selfChunk = payload.replace(/^u=/, '').split('|')[0]
+      expect(selfChunk.split(',')).toHaveLength(8)
+    })
+
+    it('hp=number && boost=100 → 9 fields (boost 省略)', () => {
+      const target = CHARACTERS[0]
+      const state = withUnit(INITIAL_BOARD_STATE, {
+        characterId: target.id,
+        cost: target.cost,
+        hp: 200,
+      })
+      const payload = encodeV2(state)
+      const selfChunk = payload.replace(/^u=/, '').split('|')[0]
+      const fields = selfChunk.split(',')
+      expect(fields).toHaveLength(9)
+      expect(fields[7]).toBe(target.code)
+      expect(fields[8]).toBe('200')
+    })
+
+    it('hp=null && boost!=100 → 10 fields (hp 空文字, boost あり)', () => {
+      const state = withUnit(INITIAL_BOARD_STATE, { boost: 50 })
+      const payload = encodeV2(state)
+      const selfChunk = payload.replace(/^u=/, '').split('|')[0]
+      const fields = selfChunk.split(',')
+      expect(fields).toHaveLength(10)
+      expect(fields[8]).toBe('') // hp=null
+      expect(fields[9]).toBe('50')
+    })
+
+    it('hp=number && boost!=100 → 10 fields (両方あり)', () => {
+      const target = CHARACTERS[0]
+      const state = withUnit(INITIAL_BOARD_STATE, {
+        characterId: target.id,
+        cost: target.cost,
+        hp: 300,
+        boost: 75,
+      })
+      const payload = encodeV2(state)
+      const selfChunk = payload.replace(/^u=/, '').split('|')[0]
+      const fields = selfChunk.split(',')
+      expect(fields).toHaveLength(10)
+      expect(fields[8]).toBe('300')
+      expect(fields[9]).toBe('75')
+    })
+
+    it('hp=0 (撃破) は "0" として encode され空文字にならない', () => {
+      const target = CHARACTERS[0]
+      const state = withUnit(INITIAL_BOARD_STATE, {
+        characterId: target.id,
+        cost: target.cost,
+        hp: 0,
+      })
+      const payload = encodeV2(state)
+      const fields = payload.replace(/^u=/, '').split('|')[0].split(',')
+      expect(fields).toHaveLength(9)
+      expect(fields[8]).toBe('0')
+    })
+
+    it('round-trip: encode → decode → encode が同じ文字列を返す (正規形が一意)', () => {
+      const target = CHARACTERS[0]
+      const state = withUnit(INITIAL_BOARD_STATE, {
+        characterId: target.id,
+        cost: target.cost,
+        hp: 250,
+        boost: 60,
+      })
+      const e1 = encode(state)
+      const d = decode(e1)
+      expect(d).not.toBeNull()
+      const e2 = encode(d!)
+      expect(e2).toBe(e1)
+    })
+  })
+
+  describe('Issue #58: normalizeBoardState (decode 後の不整合補正)', () => {
+    function makeState(self: Partial<Unit>): BoardState {
+      return {
+        units: {
+          ...INITIAL_BOARD_STATE.units,
+          self: { ...INITIAL_BOARD_STATE.units.self, ...self },
+        },
+      }
+    }
+
+    it('characterId=null && hp=300 → hp=null に補正', () => {
+      const dirty = makeState({ characterId: null, hp: 300 })
+      const normalized = normalizeBoardState(dirty)
+      expect(normalized.units.self.hp).toBeNull()
+    })
+
+    it('characterId=set && hp が maxHp を超える → maxHp に clamp', () => {
+      const target = CHARACTERS[0]
+      const dirty = makeState({
+        characterId: target.id,
+        cost: target.cost,
+        hp: target.maxHp + 5000,
+      })
+      const normalized = normalizeBoardState(dirty)
+      expect(normalized.units.self.hp).toBe(target.maxHp)
+    })
+
+    it('characterId=set && hp=null → maxHp に補完', () => {
+      const target = CHARACTERS[0]
+      const dirty = makeState({ characterId: target.id, cost: target.cost, hp: null })
+      const normalized = normalizeBoardState(dirty)
+      expect(normalized.units.self.hp).toBe(target.maxHp)
+    })
+
+    it('characterId=未知 ID → characterId=null + hp=null に補正', () => {
+      const dirty = makeState({ characterId: 'totally-unknown', hp: 500 })
+      const normalized = normalizeBoardState(dirty)
+      expect(normalized.units.self.characterId).toBeNull()
+      expect(normalized.units.self.hp).toBeNull()
+    })
+
+    it('boost が 0..100 範囲外 → clamp', () => {
+      const high = makeState({ boost: 200 })
+      expect(normalizeBoardState(high).units.self.boost).toBe(100)
+      const low = makeState({ boost: -10 })
+      expect(normalizeBoardState(low).units.self.boost).toBe(0)
+    })
+
+    it('boost が小数 → 整数化', () => {
+      const frac = makeState({ boost: 33.4 })
+      expect(normalizeBoardState(frac).units.self.boost).toBe(33)
+    })
+
+    it('既に整合した state は同じ参照を返す (React bailout)', () => {
+      // INITIAL_BOARD_STATE は characterId=null && hp=null && boost=100 で正規形
+      const same = normalizeBoardState(INITIAL_BOARD_STATE)
+      expect(same).toBe(INITIAL_BOARD_STATE)
     })
   })
 })
