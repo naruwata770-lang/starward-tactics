@@ -36,18 +36,27 @@
  * 別名 / 読み仮名 / アルファベット表記 などを入れる。空配列でも OK。
  *
  * ============================================================
- *  maxHp (Issue #58)
+ *  maxHp (Issue #71 で atwiki 実測値へ置換)
  * ============================================================
  *
  * 各機体の最大 HP 値。盤面トークンに「残 HP / 最大 HP」を表示する用途で使う。
  *
- * ⚠️ 暫定値: 現状はコスト別の代表値で固定している (cost 3=680 / 2.5=620 /
- * 2=560 / 1.5=480)。EXVS 系の標準的な耐久値を借りた近似で、正確な機体個別値
- * (公式 wiki / ゲーム内データ) ではない。
+ * データソース:
+ *   - 体力一覧 (50 機): `https://w.atwiki.jp/starward/pages/67.html` の
+ *     「体力一覧」セクション。2025-08-01 時点のスナップショット
+ *   - 個別ページ (17 機): 体力一覧 未掲載機は各機体の atwiki 個別ページの
+ *     ステータス欄 (例: キャミィ `pages/334.html` の「体力：3000」) から採用。
+ *     2026-04-13 取得
  *
- * 個別精緻化は別 issue で行う方針 (Issue #58 セカンドオピニオン Codex/Gemini[共通] 反映):
- * - PR/リリースノートにも placeholder である旨を記載する
- * - データソースが固まったら、機体ごとに上書きする (構造変更は不要)
+ * 結果として全 67 機すべてが atwiki 実測値。fallback 機構 (cost 別代表値) は
+ * dead code 化するため削除済み。将来新機体を追加する場合、`Character.maxHp`
+ * は必須フィールドなので型チェックで記入漏れが必ず弾かれる。
+ *
+ * URL 互換性 (Issue #71 PR で明記):
+ * maxHp は URL に乗らない (urlCodec は characterCode + hp のみ encode) ので、
+ * maxHp 差し替えで URL スキーマは変わらない。ただし旧 placeholder 時代の
+ * 共有 URL (hp=680 等) を読み込むと、新 maxHp (例 2953) 下では「低残量」に
+ * 見える。normalizeBoardState が 0..maxHp で clamp するので破綻はしない。
  */
 
 import type { Cost } from '../types/board'
@@ -59,28 +68,9 @@ export interface Character {
   cost: Cost
   /** URL に乗る 2 文字短縮識別子 (永続。変更厳禁) */
   code: string
-  /** 最大 HP (placeholder; 詳細は冒頭コメントの maxHp 節を参照) */
+  /** 最大 HP (全機体 atwiki 実測値。詳細は冒頭コメントの maxHp 節を参照) */
   maxHp: number
   searchTokens: readonly string[]
-}
-
-/**
- * cost 別の placeholder maxHp。
- * Issue #58 で機体個別 maxHp が判明するまでの暫定値として使う。
- *
- * 数値の根拠: EXVS 系の標準耐久値 (cost 3=680, 2.5=620, 2=560, 1.5=480)。
- * 個別実測値が判明したら CHARACTERS の各エントリの maxHp を直接書き換える
- * (この lookup は単に「未指定時のデフォルト」を計算しやすくするためのもの)。
- */
-const DEFAULT_MAX_HP_BY_COST: Readonly<Record<number, number>> = Object.freeze({
-  3: 680,
-  2.5: 620,
-  2: 560,
-  1.5: 480,
-})
-
-function defaultMaxHp(cost: Cost): number {
-  return DEFAULT_MAX_HP_BY_COST[cost]
 }
 
 /**
@@ -92,104 +82,85 @@ function defaultMaxHp(cost: Cost): number {
  *   20 コスト → cost: 2
  *   15 コスト → cost: 1.5
  *
- * 編集規約: 各エントリは `id, name, shortName, cost, code, searchTokens` の
- * 6 フィールドのみ書く。`maxHp` は cost からデフォルト値を自動付与する
- * (Issue #58)。機体個別の正確な値が判明したら、そのエントリだけ
- * `maxHp: <value>` を末尾に追加すると個別上書きできる
- * (`SEED_TO_CHARACTER` を参照)。
+ * 編集規約: 全 7 フィールド (`id, name, shortName, cost, code, searchTokens, maxHp`)
+ * を必ず埋める。`maxHp` の出典は冒頭コメントの maxHp 節を参照。
  */
-type CharacterSeed = Omit<Character, 'maxHp'> & { maxHp?: number }
-
-function seedToCharacter(seed: CharacterSeed): Character {
-  return {
-    id: seed.id,
-    name: seed.name,
-    shortName: seed.shortName,
-    cost: seed.cost,
-    code: seed.code,
-    maxHp: seed.maxHp ?? defaultMaxHp(seed.cost),
-    searchTokens: seed.searchTokens,
-  }
-}
-
-const CHARACTER_SEEDS: readonly CharacterSeed[] = [
+export const CHARACTERS: readonly Character[] = [
   // ---- cost 3 (30コスト) ----
-  { id: 'kerubim', name: 'ケルビム', shortName: 'ケルビ', cost: 3, code: '01', searchTokens: ['kerubim'] },
-  { id: 'hikari', name: 'ヒカリ', shortName: 'ヒカリ', cost: 3, code: '02', searchTokens: ['hikari'] },
-  { id: 'shuwu', name: 'シュウウ', shortName: 'シュウ', cost: 3, code: '03', searchTokens: ['shuwu'] },
-  { id: 'elfin', name: 'エルフィン', shortName: 'エルフ', cost: 3, code: '04', searchTokens: ['elfin'] },
-  { id: 'raziel', name: 'ラジエル', shortName: 'ラジエ', cost: 3, code: '05', searchTokens: ['raziel'] },
-  { id: 'griffin', name: 'グリフィン', shortName: 'グリフ', cost: 3, code: '06', searchTokens: ['griffin'] },
-  { id: 'suzuran', name: 'スズラン', shortName: 'スズラ', cost: 3, code: '07', searchTokens: ['suzuran'] },
-  { id: 'cavalry', name: 'キャヴァリー', shortName: 'キャヴ', cost: 3, code: '08', searchTokens: ['cavalry'] },
-  { id: 'kage', name: '影', shortName: '影', cost: 3, code: '09', searchTokens: ['kage', 'shadow'] },
-  { id: 'line', name: 'ライン', shortName: 'ライン', cost: 3, code: '10', searchTokens: ['line'] },
-  { id: 'rota', name: 'ロタ', shortName: 'ロタ', cost: 3, code: '11', searchTokens: ['rota'] },
-  { id: 'eser', name: 'イーザー', shortName: 'イーザ', cost: 3, code: '12', searchTokens: ['eser'] },
-  { id: 'akigumo', name: '秋雲', shortName: '秋雲', cost: 3, code: '13', searchTokens: ['akigumo'] },
-  { id: 'longinus-beta', name: 'ロンギヌス-ベータ', shortName: 'ロンギ', cost: 3, code: '14', searchTokens: ['longinus', 'beta'] },
-  { id: 'cammy', name: 'キャミィ', shortName: 'キャミ', cost: 3, code: '15', searchTokens: ['cammy'] },
-  { id: 'seiren', name: 'セイレン', shortName: 'セイレ', cost: 3, code: '16', searchTokens: ['seiren', 'siren'] },
-  { id: 'mumei', name: '無銘', shortName: '無銘', cost: 3, code: '17', searchTokens: ['mumei'] },
-  { id: 'akatsuki', name: 'アカツキ', shortName: 'アカツ', cost: 3, code: '18', searchTokens: ['akatsuki'] },
+  { id: 'kerubim', name: 'ケルビム', shortName: 'ケルビ', cost: 3, code: '01', searchTokens: ['kerubim'], maxHp: 2953 },
+  { id: 'hikari', name: 'ヒカリ', shortName: 'ヒカリ', cost: 3, code: '02', searchTokens: ['hikari'], maxHp: 2886 },
+  { id: 'shuwu', name: 'シュウウ', shortName: 'シュウ', cost: 3, code: '03', searchTokens: ['shuwu'], maxHp: 2886 },
+  { id: 'elfin', name: 'エルフィン', shortName: 'エルフ', cost: 3, code: '04', searchTokens: ['elfin'], maxHp: 2808 },
+  { id: 'raziel', name: 'ラジエル', shortName: 'ラジエ', cost: 3, code: '05', searchTokens: ['raziel'], maxHp: 2953 },
+  { id: 'griffin', name: 'グリフィン', shortName: 'グリフ', cost: 3, code: '06', searchTokens: ['griffin'], maxHp: 3020 },
+  { id: 'suzuran', name: 'スズラン', shortName: 'スズラ', cost: 3, code: '07', searchTokens: ['suzuran'], maxHp: 2723 },
+  { id: 'cavalry', name: 'キャヴァリー', shortName: 'キャヴ', cost: 3, code: '08', searchTokens: ['cavalry'], maxHp: 3003 },
+  { id: 'kage', name: '影', shortName: '影', cost: 3, code: '09', searchTokens: ['kage', 'shadow'], maxHp: 2909 },
+  { id: 'line', name: 'ライン', shortName: 'ライン', cost: 3, code: '10', searchTokens: ['line'], maxHp: 2850 },
+  { id: 'rota', name: 'ロタ', shortName: 'ロタ', cost: 3, code: '11', searchTokens: ['rota'], maxHp: 2892 },
+  { id: 'eser', name: 'イーザー', shortName: 'イーザ', cost: 3, code: '12', searchTokens: ['eser'], maxHp: 2886 },
+  { id: 'akigumo', name: '秋雲', shortName: '秋雲', cost: 3, code: '13', searchTokens: ['akigumo'], maxHp: 2886 },
+  { id: 'longinus-beta', name: 'ロンギヌス-ベータ', shortName: 'ロンギ', cost: 3, code: '14', searchTokens: ['longinus', 'beta'], maxHp: 2888 },
+  { id: 'cammy', name: 'キャミィ', shortName: 'キャミ', cost: 3, code: '15', searchTokens: ['cammy'], maxHp: 3000 },
+  { id: 'seiren', name: 'セイレン', shortName: 'セイレ', cost: 3, code: '16', searchTokens: ['seiren', 'siren'], maxHp: 2895 },
+  { id: 'mumei', name: '無銘', shortName: '無銘', cost: 3, code: '17', searchTokens: ['mumei'], maxHp: 2800 },
+  { id: 'akatsuki', name: 'アカツキ', shortName: 'アカツ', cost: 3, code: '18', searchTokens: ['akatsuki'], maxHp: 2950 },
 
   // ---- cost 2.5 (25コスト) ----
-  { id: 'fried', name: 'フリード', shortName: 'フリー', cost: 2.5, code: '19', searchTokens: ['fried'] },
-  { id: 'kaze', name: 'カゼ', shortName: 'カゼ', cost: 2.5, code: '20', searchTokens: ['kaze'] },
-  { id: 'shaolin', name: 'シャオリン', shortName: 'シャオ', cost: 2.5, code: '21', searchTokens: ['shaolin'] },
-  { id: 'sharp', name: 'シャープ', shortName: 'シャー', cost: 2.5, code: '22', searchTokens: ['sharp'] },
-  { id: '18-go', name: '18号', shortName: '18号', cost: 2.5, code: '23', searchTokens: ['18', 'jyuhachi'] },
-  { id: 'alice', name: 'アリス', shortName: 'アリス', cost: 2.5, code: '24', searchTokens: ['alice'] },
-  { id: 'sky-saver', name: 'スカイセーバー', shortName: 'スカイ', cost: 2.5, code: '25', searchTokens: ['sky', 'saver'] },
-  { id: 'cygnus', name: 'シグナス', shortName: 'シグナ', cost: 2.5, code: '26', searchTokens: ['cygnus'] },
-  { id: 'angelis', name: 'アンジェリス', shortName: 'アンジ', cost: 2.5, code: '27', searchTokens: ['angelis'] },
-  { id: 'valkia', name: 'ヴァルキア', shortName: 'ヴァル', cost: 2.5, code: '28', searchTokens: ['valkia'] },
-  { id: 'eva', name: 'エヴァ', shortName: 'エヴァ', cost: 2.5, code: '29', searchTokens: ['eva'] },
-  { id: 'gourai-kai', name: '轟雷改', shortName: '轟雷改', cost: 2.5, code: '30', searchTokens: ['gourai', 'kai'] },
-  { id: 'ine', name: '稲', shortName: '稲', cost: 2.5, code: '31', searchTokens: ['ine'] },
-  { id: 'baselard', name: 'バーゼラルド', shortName: 'バーゼ', cost: 2.5, code: '32', searchTokens: ['baselard'] },
-  { id: 'nora', name: 'ノーラ', shortName: 'ノーラ', cost: 2.5, code: '33', searchTokens: ['nora'] },
-  { id: 'lancelot', name: 'ランスロット', shortName: 'ランス', cost: 2.5, code: '34', searchTokens: ['lancelot'] },
-  { id: 'thunderbolt-otome', name: 'サンダーボルト-OTOME', shortName: 'OTOME', cost: 2.5, code: '35', searchTokens: ['thunderbolt', 'otome'] },
-  { id: 'galahad-akatsuki', name: 'ガラハッド・暁', shortName: 'ガラ暁', cost: 2.5, code: '36', searchTokens: ['galahad', 'akatsuki'] },
-  { id: 'dead-alive', name: 'デッド・アライブ', shortName: 'D&A', cost: 2.5, code: '37', searchTokens: ['dead', 'alive'] },
-  { id: 'haruka', name: 'ハルカ', shortName: 'ハルカ', cost: 2.5, code: '38', searchTokens: ['haruka'] },
-  { id: 'dragoner', name: 'ドラグナー', shortName: 'ドラグ', cost: 2.5, code: '39', searchTokens: ['dragoner'] },
-  { id: 'reki', name: 'レキ', shortName: 'レキ', cost: 2.5, code: '40', searchTokens: ['reki'] },
+  { id: 'fried', name: 'フリード', shortName: 'フリー', cost: 2.5, code: '19', searchTokens: ['fried'], maxHp: 2664 },
+  { id: 'kaze', name: 'カゼ', shortName: 'カゼ', cost: 2.5, code: '20', searchTokens: ['kaze'], maxHp: 2592 },
+  { id: 'shaolin', name: 'シャオリン', shortName: 'シャオ', cost: 2.5, code: '21', searchTokens: ['shaolin'], maxHp: 2772 },
+  { id: 'sharp', name: 'シャープ', shortName: 'シャー', cost: 2.5, code: '22', searchTokens: ['sharp'], maxHp: 2592 },
+  { id: '18-go', name: '18号', shortName: '18号', cost: 2.5, code: '23', searchTokens: ['18', 'jyuhachi'], maxHp: 2664 },
+  { id: 'alice', name: 'アリス', shortName: 'アリス', cost: 2.5, code: '24', searchTokens: ['alice'], maxHp: 2772 },
+  { id: 'sky-saver', name: 'スカイセーバー', shortName: 'スカイ', cost: 2.5, code: '25', searchTokens: ['sky', 'saver'], maxHp: 2664 },
+  { id: 'cygnus', name: 'シグナス', shortName: 'シグナ', cost: 2.5, code: '26', searchTokens: ['cygnus'], maxHp: 2492 },
+  { id: 'angelis', name: 'アンジェリス', shortName: 'アンジ', cost: 2.5, code: '27', searchTokens: ['angelis'], maxHp: 2500 },
+  { id: 'valkia', name: 'ヴァルキア', shortName: 'ヴァル', cost: 2.5, code: '28', searchTokens: ['valkia'], maxHp: 2592 },
+  { id: 'eva', name: 'エヴァ', shortName: 'エヴァ', cost: 2.5, code: '29', searchTokens: ['eva'], maxHp: 2550 },
+  { id: 'gourai-kai', name: '轟雷改', shortName: '轟雷改', cost: 2.5, code: '30', searchTokens: ['gourai', 'kai'], maxHp: 2669 },
+  { id: 'ine', name: '稲', shortName: '稲', cost: 2.5, code: '31', searchTokens: ['ine'], maxHp: 2556 },
+  { id: 'baselard', name: 'バーゼラルド', shortName: 'バーゼ', cost: 2.5, code: '32', searchTokens: ['baselard'], maxHp: 2556 },
+  { id: 'nora', name: 'ノーラ', shortName: 'ノーラ', cost: 2.5, code: '33', searchTokens: ['nora'], maxHp: 2772 },
+  { id: 'lancelot', name: 'ランスロット', shortName: 'ランス', cost: 2.5, code: '34', searchTokens: ['lancelot'], maxHp: 2655 },
+  { id: 'thunderbolt-otome', name: 'サンダーボルト-OTOME', shortName: 'OTOME', cost: 2.5, code: '35', searchTokens: ['thunderbolt', 'otome'], maxHp: 2500 },
+  { id: 'galahad-akatsuki', name: 'ガラハッド・暁', shortName: 'ガラ暁', cost: 2.5, code: '36', searchTokens: ['galahad', 'akatsuki'], maxHp: 2655 },
+  { id: 'dead-alive', name: 'デッド・アライブ', shortName: 'D&A', cost: 2.5, code: '37', searchTokens: ['dead', 'alive'], maxHp: 2525 },
+  { id: 'haruka', name: 'ハルカ', shortName: 'ハルカ', cost: 2.5, code: '38', searchTokens: ['haruka'], maxHp: 2650 },
+  { id: 'dragoner', name: 'ドラグナー', shortName: 'ドラグ', cost: 2.5, code: '39', searchTokens: ['dragoner'], maxHp: 2500 },
+  { id: 'reki', name: 'レキ', shortName: 'レキ', cost: 2.5, code: '40', searchTokens: ['reki'], maxHp: 2710 },
 
   // ---- cost 2 (20コスト) ----
-  { id: 'beta', name: 'ベータ', shortName: 'ベータ', cost: 2, code: '41', searchTokens: ['beta'] },
-  { id: 'deucalion', name: 'デュカリオン', shortName: 'デュカ', cost: 2, code: '42', searchTokens: ['deucalion'] },
-  { id: 'seraphim', name: 'セラフィム', shortName: 'セラフ', cost: 2, code: '43', searchTokens: ['seraphim'] },
-  { id: 'aida', name: 'アイーダ', shortName: 'アイー', cost: 2, code: '44', searchTokens: ['aida'] },
-  { id: 'pallas', name: 'パラス', shortName: 'パラス', cost: 2, code: '45', searchTokens: ['pallas'] },
-  { id: 'scorpion', name: 'スコーピオン', shortName: 'スコピ', cost: 2, code: '46', searchTokens: ['scorpion'] },
-  { id: 'zaharowa', name: 'ザハロワ', shortName: 'ザハロ', cost: 2, code: '47', searchTokens: ['zaharowa'] },
-  { id: 'virtue', name: 'ヴァーチェ', shortName: 'ヴァチ', cost: 2, code: '48', searchTokens: ['virtue'] },
-  { id: 'sakuya', name: '咲迦', shortName: '咲迦', cost: 2, code: '49', searchTokens: ['sakuya'] },
-  { id: 'chinni', name: 'チンニ', shortName: 'チンニ', cost: 2, code: '50', searchTokens: ['chinni'] },
-  { id: 'darkstar', name: 'ダークスター', shortName: 'ダーク', cost: 2, code: '51', searchTokens: ['darkstar'] },
-  { id: 'hibiki', name: 'ヒビキ', shortName: 'ヒビキ', cost: 2, code: '52', searchTokens: ['hibiki'] },
-  { id: 'stylet', name: 'スティレット', shortName: 'スティ', cost: 2, code: '53', searchTokens: ['stylet'] },
-  { id: 'borzoi', name: 'ボルゾイ', shortName: 'ボルゾ', cost: 2, code: '54', searchTokens: ['borzoi'] },
-  { id: 'catty', name: 'キャッティ', shortName: 'キャッ', cost: 2, code: '55', searchTokens: ['catty'] },
-  { id: 'breaker', name: 'ブリーカー', shortName: 'ブリー', cost: 2, code: '56', searchTokens: ['breaker'] },
-  { id: 'galahad', name: 'ガラハッド', shortName: 'ガラハ', cost: 2, code: '57', searchTokens: ['galahad'] },
-  { id: 'flanker', name: 'フランカー', shortName: 'フラン', cost: 2, code: '58', searchTokens: ['flanker'] },
-  { id: 'aislin', name: 'アイスリン', shortName: 'アイス', cost: 2, code: '59', searchTokens: ['aislin'] },
-  { id: 'krista', name: 'クリスタ', shortName: 'クリス', cost: 2, code: '60', searchTokens: ['krista', 'crista'] },
-  { id: 'tatiana', name: 'タチアナ', shortName: 'タチア', cost: 2, code: '61', searchTokens: ['tatiana'] },
-  { id: 'phoebe', name: 'フィービー', shortName: 'フィビ', cost: 2, code: '62', searchTokens: ['phoebe'] },
+  { id: 'beta', name: 'ベータ', shortName: 'ベータ', cost: 2, code: '41', searchTokens: ['beta'], maxHp: 2340 },
+  { id: 'deucalion', name: 'デュカリオン', shortName: 'デュカ', cost: 2, code: '42', searchTokens: ['deucalion'], maxHp: 2168 },
+  { id: 'seraphim', name: 'セラフィム', shortName: 'セラフ', cost: 2, code: '43', searchTokens: ['seraphim'], maxHp: 2340 },
+  { id: 'aida', name: 'アイーダ', shortName: 'アイー', cost: 2, code: '44', searchTokens: ['aida'], maxHp: 2240 },
+  { id: 'pallas', name: 'パラス', shortName: 'パラス', cost: 2, code: '45', searchTokens: ['pallas'], maxHp: 2448 },
+  { id: 'scorpion', name: 'スコーピオン', shortName: 'スコピ', cost: 2, code: '46', searchTokens: ['scorpion'], maxHp: 2268 },
+  { id: 'zaharowa', name: 'ザハロワ', shortName: 'ザハロ', cost: 2, code: '47', searchTokens: ['zaharowa'], maxHp: 2196 },
+  { id: 'virtue', name: 'ヴァーチェ', shortName: 'ヴァチ', cost: 2, code: '48', searchTokens: ['virtue'], maxHp: 2348 },
+  { id: 'sakuya', name: '咲迦', shortName: '咲迦', cost: 2, code: '49', searchTokens: ['sakuya'], maxHp: 2298 },
+  { id: 'chinni', name: 'チンニ', shortName: 'チンニ', cost: 2, code: '50', searchTokens: ['chinni'], maxHp: 2268 },
+  { id: 'darkstar', name: 'ダークスター', shortName: 'ダーク', cost: 2, code: '51', searchTokens: ['darkstar'], maxHp: 2155 },
+  { id: 'hibiki', name: 'ヒビキ', shortName: 'ヒビキ', cost: 2, code: '52', searchTokens: ['hibiki'], maxHp: 2168 },
+  { id: 'stylet', name: 'スティレット', shortName: 'スティ', cost: 2, code: '53', searchTokens: ['stylet'], maxHp: 2340 },
+  { id: 'borzoi', name: 'ボルゾイ', shortName: 'ボルゾ', cost: 2, code: '54', searchTokens: ['borzoi'], maxHp: 2210 },
+  { id: 'catty', name: 'キャッティ', shortName: 'キャッ', cost: 2, code: '55', searchTokens: ['catty'], maxHp: 2240 },
+  { id: 'breaker', name: 'ブリーカー', shortName: 'ブリー', cost: 2, code: '56', searchTokens: ['breaker'], maxHp: 2340 },
+  { id: 'galahad', name: 'ガラハッド', shortName: 'ガラハ', cost: 2, code: '57', searchTokens: ['galahad'], maxHp: 2340 },
+  { id: 'flanker', name: 'フランカー', shortName: 'フラン', cost: 2, code: '58', searchTokens: ['flanker'], maxHp: 2222 },
+  { id: 'aislin', name: 'アイスリン', shortName: 'アイス', cost: 2, code: '59', searchTokens: ['aislin'], maxHp: 2200 },
+  { id: 'krista', name: 'クリスタ', shortName: 'クリス', cost: 2, code: '60', searchTokens: ['krista', 'crista'], maxHp: 2240 },
+  { id: 'tatiana', name: 'タチアナ', shortName: 'タチア', cost: 2, code: '61', searchTokens: ['tatiana'], maxHp: 2400 },
+  { id: 'phoebe', name: 'フィービー', shortName: 'フィビ', cost: 2, code: '62', searchTokens: ['phoebe'], maxHp: 2155 },
 
   // ---- cost 1.5 (15コスト) ----
-  { id: 'orchid', name: 'オーキッド', shortName: 'オーキ', cost: 1.5, code: '63', searchTokens: ['orchid'] },
-  { id: 'roland', name: 'ローランド', shortName: 'ローラ', cost: 1.5, code: '64', searchTokens: ['roland'] },
-  { id: 'catalina', name: 'カタリナ', shortName: 'カタリ', cost: 1.5, code: '65', searchTokens: ['catalina'] },
-  { id: 'snow-wall', name: 'スノーウォル', shortName: 'スノー', cost: 1.5, code: '66', searchTokens: ['snow', 'wall'] },
-  { id: 'yamin', name: 'ヤミン', shortName: 'ヤミン', cost: 1.5, code: '67', searchTokens: ['yamin'] },
+  { id: 'orchid', name: 'オーキッド', shortName: 'オーキ', cost: 1.5, code: '63', searchTokens: ['orchid'], maxHp: 1980 },
+  { id: 'roland', name: 'ローランド', shortName: 'ローラ', cost: 1.5, code: '64', searchTokens: ['roland'], maxHp: 2088 },
+  { id: 'catalina', name: 'カタリナ', shortName: 'カタリ', cost: 1.5, code: '65', searchTokens: ['catalina'], maxHp: 2080 },
+  { id: 'snow-wall', name: 'スノーウォル', shortName: 'スノー', cost: 1.5, code: '66', searchTokens: ['snow', 'wall'], maxHp: 1872 },
+  { id: 'yamin', name: 'ヤミン', shortName: 'ヤミン', cost: 1.5, code: '67', searchTokens: ['yamin'], maxHp: 1980 },
 ] as const
-
-export const CHARACTERS: readonly Character[] = CHARACTER_SEEDS.map(seedToCharacter)
 
 /**
  * code → Character の lookup テーブル。
