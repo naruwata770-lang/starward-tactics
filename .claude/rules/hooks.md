@@ -28,6 +28,7 @@ Bash ツールで `git *` コマンドが実行される前に発火し、以下
 - `git -C /other/repo push origin main` のように `git` の直後に `push` が続かないコマンドは push 検知ブロックに入らずすり抜ける (issue #62 の K2 で fixate)
 - `git commit -nm "msg"` のような combined short flag は `(^|\s)-n(\s|$)` regex で捕捉できず通る (issue #62 の K4 で fixate)
 - detached HEAD 中は `git symbolic-ref` が空文字を返すため 1b 検知が発火しない (意図的・K3 で fixate)
+- 引用符付き refspec `git push origin "main"` はクォート除去 sed で main が消え 1a 不発火 (K7 で fixate。Claude Code の生成コマンドは通常クォートしないため実害は限定的)
 
 ### テスト
 
