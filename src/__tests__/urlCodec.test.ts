@@ -31,6 +31,7 @@ import type { BoardState, Unit } from '../types/board'
 
 function withUnit(state: BoardState, patch: Partial<Unit>): BoardState {
   return {
+    ...state,
     units: {
       ...state.units,
       self: { ...state.units.self, ...patch },
@@ -108,6 +109,7 @@ describe('urlCodec', () => {
             boost: 100,
           },
         },
+        teamRemainingCost: { ally: 6, enemy: 6 },
       }
       const decoded = decode(encode(custom))
       expect(decoded).toEqual(custom)
@@ -272,6 +274,7 @@ describe('urlCodec', () => {
           enemy1: { ...INITIAL_BOARD_STATE.units.enemy1, x: UNIT_COORD_X_MAX, y: UNIT_COORD_Y_MAX, lockTarget: 'self', characterId: CHARACTERS[2].id },
           enemy2: { ...INITIAL_BOARD_STATE.units.enemy2, x: UNIT_COORD_X_MAX, y: UNIT_COORD_Y_MAX, lockTarget: 'ally', characterId: CHARACTERS[3].id },
         },
+        teamRemainingCost: { ally: 0, enemy: 0 },
       }
       const url = `?b=${encode(heavy)}`
       expect(url.length).toBeLessThan(200)
@@ -439,6 +442,113 @@ describe('urlCodec', () => {
       expect(decoded?.units.ally.characterId).toBeNull()
       expect(decoded?.units.enemy1.characterId).toBeNull()
       expect(decoded?.units.enemy2.characterId).toBeNull()
+    })
+
+    it('Issue #60: v1 decode falls back to teamRemainingCost (6, 6)', () => {
+      const v1Payload = '260,460,0,d,n,B,_|460,460,0,d,n,B,_|260,260,4,d,n,B,_|460,260,4,d,n,B,_'
+      const v1Url = `v1.${b64url(v1Payload)}`
+      const decoded = decode(v1Url)
+      expect(decoded?.teamRemainingCost).toEqual({ ally: 6, enemy: 6 })
+    })
+  })
+
+  // Issue #60
+  describe('teamRemainingCost (v2 tc= section)', () => {
+    it('encodeV2 omits the tc= section at the initial (6, 6) value', () => {
+      // 初期値は省略することで既存共有 URL との文字列互換を保つ
+      const payload = encodeV2(INITIAL_BOARD_STATE)
+      expect(payload).not.toMatch(/;tc=/)
+      expect(payload).toMatch(/^u=/)
+    })
+
+    it('encodeV2 writes the tc= section for non-initial values', () => {
+      const state = withUnit(INITIAL_BOARD_STATE, {}) // start from initial
+      const custom: BoardState = {
+        ...state,
+        teamRemainingCost: { ally: 4.5, enemy: 3 },
+      }
+      const payload = encodeV2(custom)
+      expect(payload).toMatch(/;tc=4\.5,3/)
+    })
+
+    it('round-trips non-initial teamRemainingCost through encode/decode', () => {
+      const custom: BoardState = {
+        ...INITIAL_BOARD_STATE,
+        teamRemainingCost: { ally: 2.5, enemy: 0 },
+      }
+      const decoded = decode(encode(custom))
+      expect(decoded?.teamRemainingCost).toEqual({ ally: 2.5, enemy: 0 })
+    })
+
+    it('round-trips boundary values (0 and 6)', () => {
+      const custom: BoardState = {
+        ...INITIAL_BOARD_STATE,
+        teamRemainingCost: { ally: 0, enemy: 6 },
+      }
+      const decoded = decode(encode(custom))
+      expect(decoded?.teamRemainingCost).toEqual({ ally: 0, enemy: 6 })
+    })
+
+    it('decodeV2 falls back to (6, 6) when tc= section is missing', () => {
+      const fixed = '260,460,0,d,n,B,_'
+      const payload = `u=${fixed},|${fixed},|${fixed},|${fixed},`
+      const state = decodeV2(payload)
+      expect(state?.teamRemainingCost).toEqual({ ally: 6, enemy: 6 })
+    })
+
+    it('decodeV2 rejects tc= with non-numeric values', () => {
+      const fixed = '260,460,0,d,n,B,_'
+      const payload = `u=${fixed},|${fixed},|${fixed},|${fixed},;tc=abc,def`
+      expect(decodeV2(payload)).toBeNull()
+    })
+
+    it('decodeV2 rejects tc= outside 0..6 range', () => {
+      const fixed = '260,460,0,d,n,B,_'
+      const payload = `u=${fixed},|${fixed},|${fixed},|${fixed},;tc=7,0`
+      expect(decodeV2(payload)).toBeNull()
+    })
+
+    it('decodeV2 rejects tc= that violates 0.5 step', () => {
+      const fixed = '260,460,0,d,n,B,_'
+      const payload = `u=${fixed},|${fixed},|${fixed},|${fixed},;tc=3.2,3.0`
+      expect(decodeV2(payload)).toBeNull()
+    })
+
+    it('decodeV2 rejects tc= with wrong value count', () => {
+      const fixed = '260,460,0,d,n,B,_'
+      const payload = `u=${fixed},|${fixed},|${fixed},|${fixed},;tc=6`
+      expect(decodeV2(payload)).toBeNull()
+    })
+
+    it('decodeV2 rejects duplicate tc= section (parseV2Sections duplicate-key guard)', () => {
+      const fixed = '260,460,0,d,n,B,_'
+      const payload = `u=${fixed},|${fixed},|${fixed},|${fixed},;tc=6,6;tc=5,5`
+      expect(decodeV2(payload)).toBeNull()
+    })
+
+    it('decodeV2 rejects empty tc= values (Number("") would silently coerce to 0)', () => {
+      // Codex レビュー[中] 反映: Number() 任せだと "" → 0, " " → 0 が通る
+      const fixed = '260,460,0,d,n,B,_'
+      const base = `u=${fixed},|${fixed},|${fixed},|${fixed},`
+      expect(decodeV2(`${base};tc=,`)).toBeNull()
+      expect(decodeV2(`${base};tc=,6`)).toBeNull()
+      expect(decodeV2(`${base};tc=6,`)).toBeNull()
+      expect(decodeV2(`${base};tc= , `)).toBeNull()
+    })
+
+    it('decodeV2 rejects non-canonical numeric notations (5e-1 / 0x3 / leading zero)', () => {
+      const fixed = '260,460,0,d,n,B,_'
+      const base = `u=${fixed},|${fixed},|${fixed},|${fixed},`
+      expect(decodeV2(`${base};tc=5e-1,6`)).toBeNull()
+      expect(decodeV2(`${base};tc=0x3,0`)).toBeNull()
+      expect(decodeV2(`${base};tc=06,6`)).toBeNull()
+      expect(decodeV2(`${base};tc=+6,6`)).toBeNull()
+      expect(decodeV2(`${base};tc=-1,6`)).toBeNull()
+    })
+
+    it('isInitialEncoded holds for the initial state after teamRemainingCost introduction', () => {
+      // tc= 省略により INITIAL の文字列が従来と完全一致し続けることを保証
+      expect(isInitialEncoded(encode(INITIAL_BOARD_STATE))).toBe(true)
     })
   })
 
@@ -620,6 +730,7 @@ describe('urlCodec', () => {
   describe('Issue #58: normalizeBoardState (decode 後の不整合補正)', () => {
     function makeState(self: Partial<Unit>): BoardState {
       return {
+        ...INITIAL_BOARD_STATE,
         units: {
           ...INITIAL_BOARD_STATE.units,
           self: { ...INITIAL_BOARD_STATE.units.self, ...self },

@@ -58,7 +58,11 @@
  *   - 9 番目 hp が空文字 / 不在 → hp=null
  *   - 10 番目 boost が空文字 / 不在 → boost=100
  *   - 11 番目以降のフィールド → ignore
- *   - 未知セクション → ignore
+ *   - 未知 prefix セクション (`tc=` 以外の将来拡張) → ignore
+ *
+ * v2 既知セクション (Issue #60 以降):
+ * - `u=`: units (必須・strict)
+ * - `tc=`: teamRemainingCost (optional・strict。欠落時は (MAX, MAX) フォールバック)
  *
  * decode 後の正規化 (Issue #58 セカンドオピニオン Codex[共通・高] 反映):
  * - decoder は characterId と hp の整合を取らない (疎結合)。代わりに
@@ -93,6 +97,9 @@ import {
   BOOST_MAX,
   HP_DECODE_MAX,
   INITIAL_BOARD_STATE,
+  TEAM_REMAINING_COST_MAX,
+  TEAM_REMAINING_COST_MIN,
+  TEAM_REMAINING_COST_STEP,
 } from '../constants/game'
 import {
   findCharacterByCode,
@@ -104,6 +111,7 @@ import type {
   Cost,
   Direction,
   StarburstLevel,
+  TeamRemainingCost,
   Unit,
   UnitId,
 } from '../types/board'
@@ -331,7 +339,14 @@ export function decodeV1(payload: string): BoardState | null {
     units[id] = unit
   }
 
-  return { units: units as Record<UnitId, Unit> }
+  // v1 は teamRemainingCost を持たないので初期値で復元 (Issue #60 互換)
+  return {
+    units: units as Record<UnitId, Unit>,
+    teamRemainingCost: {
+      ally: TEAM_REMAINING_COST_MAX,
+      enemy: TEAM_REMAINING_COST_MAX,
+    },
+  }
 }
 
 // ---- v2 encoder / decoder ----
@@ -372,9 +387,27 @@ function encodeV2Unit(unit: Unit): string {
   return `${fixedAndCharacter},${hpStr},${boostInt}`
 }
 
+/**
+ * Issue #60: teamRemainingCost を `tc=<ally>,<enemy>` にエンコードする。
+ * 初期値 (ally=MAX, enemy=MAX) のときは **省略する** (URL 長を短く保ち、
+ * 既存共有 URL との完全互換を維持する。セカンドオピニオン[共通高] 反映)。
+ */
+function encodeTeamRemainingCostSection(tc: TeamRemainingCost): string | null {
+  if (
+    tc.ally === TEAM_REMAINING_COST_MAX &&
+    tc.enemy === TEAM_REMAINING_COST_MAX
+  ) {
+    return null
+  }
+  return `tc=${tc.ally},${tc.enemy}`
+}
+
 export function encodeV2(state: BoardState): string {
   const units = UNIT_ORDER.map((id) => encodeV2Unit(state.units[id])).join('|')
-  return `u=${units}`
+  const sections = [`u=${units}`]
+  const tcSection = encodeTeamRemainingCostSection(state.teamRemainingCost)
+  if (tcSection !== null) sections.push(tcSection)
+  return sections.join(';')
 }
 
 /**
@@ -466,6 +499,51 @@ function parseV2Sections(payload: string): Map<string, string> | null {
   return map
 }
 
+/**
+ * Issue #60: tc= セクションを strict に decode する。
+ *
+ * - **欠落**: `{ ally: MAX, enemy: MAX }` を返す (v1 / tc 無し v2 互換)
+ * - **不正** (値数違い / NaN / 範囲外 / 0.5 刻み違反): null (呼び出し側で全体 reject)
+ *
+ * v2 の固定フィールドと同じ strict 方針: 存在するが壊れている URL は
+ * サイレント切り詰めず、全体を reject して「壊れた URL は起動に失敗する」明示的挙動にする。
+ */
+/**
+ * 文字列表現としても strict に判定する。`Number()` 単独だと
+ * `""` → 0、`"5e-1"` → 0.5、`"0x3"` → 3、`" 6 "` → 6 のように
+ * URL の round-trip 仕様外の表記を黙って受け入れてしまう。仕様は
+ * encode 側が `toString()` で出す `"0", "0.5", ..., "6"` の整数 / 0.5 刻みのみ。
+ *
+ * Codex レビュー[中] 反映: `tc=,` / `tc= , ` / `tc=5e-1,6` / `tc=0x3,0` が
+ * silent に通る回帰を防ぐため、許可形式を正規表現で先に絞る。
+ */
+const TEAM_COST_TOKEN_PATTERN = /^(?:0|[1-9]\d*)(?:\.\d+)?$/
+
+function decodeTeamRemainingCostSection(
+  raw: string | undefined,
+): TeamRemainingCost | 'reject' {
+  if (raw === undefined) {
+    return { ally: TEAM_REMAINING_COST_MAX, enemy: TEAM_REMAINING_COST_MAX }
+  }
+  const parts = raw.split(',')
+  if (parts.length !== 2) return 'reject'
+  const [allyStr, enemyStr] = parts
+  if (!TEAM_COST_TOKEN_PATTERN.test(allyStr)) return 'reject'
+  if (!TEAM_COST_TOKEN_PATTERN.test(enemyStr)) return 'reject'
+  const ally = Number(allyStr)
+  const enemy = Number(enemyStr)
+  // 正規表現を通れば NaN / Infinity は出ないが防御として残す
+  if (!Number.isFinite(ally) || !Number.isFinite(enemy)) return 'reject'
+  for (const value of [ally, enemy]) {
+    if (value < TEAM_REMAINING_COST_MIN || value > TEAM_REMAINING_COST_MAX) {
+      return 'reject'
+    }
+    // 0.5 刻み違反は reject (整数倍判定。STEP=0.5 で除算誤差は出ない)
+    if (!Number.isInteger(value / TEAM_REMAINING_COST_STEP)) return 'reject'
+  }
+  return { ally, enemy }
+}
+
 export function decodeV2(payload: string): BoardState | null {
   const sections = parseV2Sections(payload)
   if (sections === null) return null
@@ -485,8 +563,15 @@ export function decodeV2(payload: string): BoardState | null {
     units[id] = unit
   }
 
+  // Issue #60: tc= セクション (optional)
+  const tcResult = decodeTeamRemainingCostSection(sections.get('tc'))
+  if (tcResult === 'reject') return null
+
   // 未知 prefix セクションは sections.get で参照しないので自然に ignore される
-  return { units: units as Record<UnitId, Unit> }
+  return {
+    units: units as Record<UnitId, Unit>,
+    teamRemainingCost: tcResult,
+  }
 }
 
 // ---- normalize ----
@@ -550,7 +635,7 @@ export function normalizeBoardState(state: BoardState): BoardState {
     }
   }
   if (!changed) return state
-  return { units: normalizedUnits }
+  return { ...state, units: normalizedUnits }
 }
 
 // ---- top-level encode / decode ----

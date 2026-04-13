@@ -10,7 +10,13 @@ import {
   UNIT_COORD_Y_MAX,
   UNIT_COORD_Y_MIN,
 } from '../constants/board'
-import { BOOST_MAX, INITIAL_BOARD_STATE } from '../constants/game'
+import {
+  BOOST_MAX,
+  INITIAL_BOARD_STATE,
+  TEAM_REMAINING_COST_MAX,
+  TEAM_REMAINING_COST_MIN,
+  TEAM_REMAINING_COST_STEP,
+} from '../constants/game'
 import { findCharacterById } from '../data/characters'
 import type { BoardAction, BoardState, Unit, UnitId } from '../types/board'
 
@@ -47,12 +53,31 @@ function updateUnit(
   }
   if (!changed) return state
 
+  // Issue #60: 新 top-level フィールド (teamRemainingCost 等) を保つため、
+  // units だけを差し替える shallow spread で state を作り直す。
+  // 以前は `{ units: ... }` で new object を返しており、top-level が追加された
+  // 瞬間に既存 action で蒸発する回帰を招くため refactor した。
   return {
+    ...state,
     units: {
       ...state.units,
       [unitId]: { ...current, ...patch },
     },
   }
+}
+
+/**
+ * Issue #60: 残コスト値を 0..6 / 0.5 刻みに正規化する。
+ * - Number.isFinite 違反 (NaN / Infinity) は null を返し、呼び出し側で no-op 扱い
+ * - clamp 後に 0.5 刻みへ snap
+ */
+function normalizeTeamCost(value: number): number | null {
+  if (!Number.isFinite(value)) return null
+  const clamped = Math.max(
+    TEAM_REMAINING_COST_MIN,
+    Math.min(TEAM_REMAINING_COST_MAX, value),
+  )
+  return Math.round(clamped / TEAM_REMAINING_COST_STEP) * TEAM_REMAINING_COST_STEP
 }
 
 export function boardReducer(state: BoardState, action: BoardAction): BoardState {
@@ -132,6 +157,19 @@ export function boardReducer(state: BoardState, action: BoardAction): BoardState
       if (!Number.isFinite(action.boost)) return state
       const clamped = Math.max(0, Math.min(BOOST_MAX, Math.round(action.boost)))
       return updateUnit(state, action.unitId, { boost: clamped })
+    }
+
+    case 'SET_TEAM_REMAINING_COST': {
+      const normalized = normalizeTeamCost(action.value)
+      if (normalized === null) return state
+      if (state.teamRemainingCost[action.team] === normalized) return state
+      return {
+        ...state,
+        teamRemainingCost: {
+          ...state.teamRemainingCost,
+          [action.team]: normalized,
+        },
+      }
     }
 
     case 'LOAD_STATE':

@@ -221,6 +221,7 @@ describe('DirectionPicker', () => {
     // self を盤面右下端 (UNIT_COORD_*_MAX 近傍) に置く。
     // ピッカー半径 R=74 がはみ出すが、SVG overflow visible で DOM 上には残る。
     const edgeState: BoardState = {
+      ...INITIAL_BOARD_STATE,
       units: {
         ...INITIAL_BOARD_STATE.units,
         self: {

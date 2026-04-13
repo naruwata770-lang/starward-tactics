@@ -40,3 +40,9 @@ dist-ssr
 # dirty にならないように除外する。Claude Code の `claude --worktree` が自動で
 # 使う置き場でもあるので、手動運用時もここに統一される。
 .claude/worktrees/
+
+# uxaudit プラグインが書き出す raw artifact (40 checks / 8 journeys のスクショ・
+# steps.json・benchmark.json 等)。
+# `.claude/rules/uxaudit.md` 方針: raw artifact は plugin 既定 workspace に置き、
+# 人間向け要約だけ `docs/uxaudit/iteration-<N>/summary.md` にコミットする。
+.agents/

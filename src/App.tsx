@@ -1,5 +1,6 @@
 import { Layout } from './components/Layout'
 import { Board } from './components/board/Board'
+import { TeamCostBar } from './components/board/TeamCostBar'
 import { InspectorPanel } from './components/inspector/InspectorPanel'
 import { Toolbar } from './components/toolbar/Toolbar'
 import { useUrlSync } from './hooks/useUrlSync'
@@ -45,7 +46,15 @@ function App() {
     <BoardProvider initialState={initialState}>
       <UrlSyncBridge />
       <Layout
-        toolbar={<Toolbar />}
+        toolbar={
+          // Issue #60: TeamCostBar を Toolbar 直下に束ねて header 内に配置する。
+          // Layout 側の slot を増やさず呼び出し側で構成して公開 API を安定させる
+          // (セカンドオピニオン Codex[中] 反映)。
+          <div className="flex flex-col gap-2">
+            <Toolbar />
+            <TeamCostBar />
+          </div>
+        }
         board={<Board />}
         inspector={<InspectorPanel />}
       />
