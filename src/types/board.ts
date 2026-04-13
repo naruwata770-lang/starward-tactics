@@ -83,11 +83,16 @@ export type BoardAction =
    * Issue #58: HP / Boost を編集する。Action を 2 つに分けることで Undo 1 単位を
    * 「HP 操作」「Boost 操作」で独立させる (Codex 提案[共通・中] 反映)。
    *
-   * - `SET_HP` の hp は `null` または 0..maxHp の整数。reducer 側で clamp + 整数化する。
-   *   characterId === null のときは hp = null 固定 (reducer で防御)
-   * - `SET_BOOST` の boost は 0..100 の整数。reducer 側で clamp + 整数化する。
+   * - `SET_HP` の hp は 0..maxHp の整数 (reducer 側で clamp + 整数化)。
+   *   characterId === null の unit に対する SET_HP は **no-op** で弾く。
+   *   `hp = null` を直接設定する経路は SET_HP には無い (SET_CHARACTER で機体解除時のみ
+   *   null 化される)。これは「characterId と hp の同期不変条件」を保つため
+   *   (#58 レビュー[共通] 反映: SET_HP(null) を許すと normalize で復元時に補正されて
+   *   reducer/codec 間で意味が割れる)。
+   * - `SET_BOOST` の boost は 0..100 の整数 (reducer 側で clamp + 整数化)。
+   *   characterId に依存しない。
    */
-  | { type: 'SET_HP'; unitId: UnitId; hp: number | null }
+  | { type: 'SET_HP'; unitId: UnitId; hp: number }
   | { type: 'SET_BOOST'; unitId: UnitId; boost: number }
   | { type: 'LOAD_STATE'; state: BoardState }
   | { type: 'RESET' }

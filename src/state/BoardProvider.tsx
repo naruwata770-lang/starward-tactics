@@ -6,7 +6,7 @@
  * を満たすため、コンポーネントのみを export している。
  */
 
-import { useEffect, useMemo, useReducer, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react'
 
 import { INITIAL_BOARD_STATE } from '../constants/game'
 import type { BoardState, UnitId } from '../types/board'
@@ -14,6 +14,8 @@ import {
   BoardDispatchContext,
   BoardPresentContext,
   BoardStateContext,
+  ShowHpBoostContext,
+  type ShowHpBoostContextValue,
   UIContext,
   type UIContextValue,
 } from './BoardContext'
@@ -87,21 +89,42 @@ export function BoardProvider({ children, initialState }: BoardProviderProps) {
   // Issue #58: HP/Boost 表示トグル。lazy initializer で localStorage を読む。
   const [showHpBoost, setShowHpBoost] = useState<boolean>(() => readShowHpBoostFromStorage())
 
-  // 値変更時に localStorage に書き戻す (例外は writer 側で握りつぶし)。
+  // 値変更時に localStorage に書き戻す。
+  // 初回マウントでは読み出した値と state が同じなので skip する (Claude レビュー指摘反映):
+  // - quota 超過 / private mode で setItem が throw する環境で、ユーザーが何も操作してないのに
+  //   毎リロード DEV warn が出るのを防ぐ
+  // - 読んだ値と同じ値を書き戻すのは無意味
+  const isFirstShowHpBoostEffect = useRef(true)
   useEffect(() => {
+    if (isFirstShowHpBoostEffect.current) {
+      isFirstShowHpBoostEffect.current = false
+      return
+    }
     writeShowHpBoostToStorage(showHpBoost)
   }, [showHpBoost])
 
   const uiValue = useMemo<UIContextValue>(
-    () => ({ selectedUnit, setSelectedUnit, showHpBoost, setShowHpBoost }),
-    [selectedUnit, showHpBoost],
+    () => ({ selectedUnit, setSelectedUnit }),
+    [selectedUnit],
+  )
+
+  // showHpBoost を別 Context に分離する理由 (Codex レビュー指摘反映):
+  // UIContext (selectedUnit) と相乗りすると selection 変更で全 UnitToken が再 render される。
+  // 表示トグルは selection と独立した周期 (撮影前のオン/オフ) なので Context を分ける。
+  const showHpBoostValue = useMemo<ShowHpBoostContextValue>(
+    () => ({ showHpBoost, setShowHpBoost }),
+    [showHpBoost],
   )
 
   return (
     <BoardStateContext.Provider value={historyState}>
       <BoardPresentContext.Provider value={historyState.present}>
         <BoardDispatchContext.Provider value={dispatch}>
-          <UIContext.Provider value={uiValue}>{children}</UIContext.Provider>
+          <UIContext.Provider value={uiValue}>
+            <ShowHpBoostContext.Provider value={showHpBoostValue}>
+              {children}
+            </ShowHpBoostContext.Provider>
+          </UIContext.Provider>
         </BoardDispatchContext.Provider>
       </BoardPresentContext.Provider>
     </BoardStateContext.Provider>

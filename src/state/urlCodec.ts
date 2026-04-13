@@ -519,30 +519,23 @@ export function normalizeBoardState(state: BoardState): BoardState {
   const normalizedUnits: Record<UnitId, Unit> = { ...state.units }
   for (const id of UNIT_ORDER) {
     const unit = state.units[id]
+    // findCharacterById は characterId=null でも null を返すので一度引いて使い回す
+    // (Claude レビュー指摘反映: 二重 lookup を排除)。
+    // unit.characterId が string だが lookup miss → character は null になり、
+    // 下の正規化で characterId 自体も null に倒される。
     const character = findCharacterById(unit.characterId)
-    let hp = unit.hp
-    let characterId = unit.characterId
+    const characterId = character === null ? null : unit.characterId
 
-    // characterId が string だが lookup miss → null に正規化 (decoder で fallback 済みのはず)
-    if (unit.characterId !== null && character === null) {
-      characterId = null
-    }
-
-    if (characterId === null) {
-      // 機体未選択時は hp 必ず null
-      if (hp !== null) hp = null
+    let hp: number | null
+    if (character === null) {
+      // 機体未選択 (または未知 ID で null に倒した) → hp 必ず null
+      hp = null
+    } else if (unit.hp === null) {
+      // 機体選択中に hp=null は URL 上の不整合。maxHp に補完
+      hp = character.maxHp
     } else {
-      // ここで character は確実に存在 (上のガードで characterId と同期済み)
-      const charForUnit = findCharacterById(characterId)
-      if (charForUnit !== null) {
-        if (hp === null) {
-          // 機体選択中に hp=null は URL 上の不整合。maxHp に補完
-          hp = charForUnit.maxHp
-        } else {
-          const clamped = Math.max(0, Math.min(charForUnit.maxHp, Math.round(hp)))
-          if (clamped !== hp) hp = clamped
-        }
-      }
+      // 0..maxHp に clamp + 整数化
+      hp = Math.max(0, Math.min(character.maxHp, Math.round(unit.hp)))
     }
 
     const boostInt = Math.max(0, Math.min(BOOST_MAX, Math.round(unit.boost)))

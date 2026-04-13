@@ -56,6 +56,9 @@ export const BoostEditor = memo(function BoostEditor({
           step={1}
           value={boost}
           onChange={(e) => {
+            // 空文字は `Number('')` で 0 になるため、編集中の中間状態を「Boost ゼロ」
+            // として dispatch してしまう (Codex レビュー指摘反映)。空文字は無視する。
+            if (e.target.value === '') return
             const v = Number(e.target.value)
             if (!Number.isFinite(v)) return
             setBoost(v)

@@ -384,12 +384,6 @@ describe('boardReducer', () => {
       expect(next.units.self.hp).not.toBeNull()
     })
 
-    it('explicit hp=null clears the HP display while character is selected', () => {
-      const { state } = withCharacter()
-      const next = boardReducer(state, { type: 'SET_HP', unitId: 'self', hp: null })
-      expect(next.units.self.hp).toBeNull()
-    })
-
     it('rejects SET_HP when characterId is null (no-op)', () => {
       // INITIAL_BOARD_STATE の self は characterId=null
       const next = boardReducer(INITIAL_BOARD_STATE, {
@@ -398,6 +392,25 @@ describe('boardReducer', () => {
         hp: 300,
       })
       expect(next).toBe(INITIAL_BOARD_STATE)
+    })
+
+    it('SET_HP の型は number 固定: hp=null を直接設定する経路は無い (Codex レビュー指摘反映)', () => {
+      // 仕様源泉の単一化: 機体解除時の hp=null 化は SET_CHARACTER 経由のみ。
+      // SET_HP は number 専用なので、ここでは「characterId=null + SET_CHARACTER で
+      // hp が null になる」を verify する (SET_HP では到達不能になったことを暗示)。
+      const target = CHARACTERS[0]
+      const withChar = boardReducer(INITIAL_BOARD_STATE, {
+        type: 'SET_CHARACTER',
+        unitId: 'self',
+        characterId: target.id,
+      })
+      expect(withChar.units.self.hp).toBe(target.maxHp)
+      const cleared = boardReducer(withChar, {
+        type: 'SET_CHARACTER',
+        unitId: 'self',
+        characterId: null,
+      })
+      expect(cleared.units.self.hp).toBeNull()
     })
 
     it('rejects non-finite hp (NaN, Infinity) as no-op', () => {

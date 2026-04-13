@@ -88,6 +88,20 @@ describe('HpEditor', () => {
     expect(screen.getByTestId('self-hp').textContent).toBe('300')
   })
 
+  it('Codex レビュー反映: 空文字 input は dispatch されない (HP=0 撃破誤判定の防止)', () => {
+    renderWithCharacter()
+    // まず slider で 300 にしておく
+    const slider = screen.getByLabelText('HP スライダー') as HTMLInputElement
+    fireEvent.change(slider, { target: { value: '300' } })
+    expect(screen.getByTestId('self-hp').textContent).toBe('300')
+
+    // 数値入力欄を空にする (編集中の中間状態) → state は変わらない
+    const numberInput = screen.getByLabelText('HP 数値入力') as HTMLInputElement
+    fireEvent.change(numberInput, { target: { value: '' } })
+    // hp は 300 のまま (0 として dispatch されてはいけない)
+    expect(screen.getByTestId('self-hp').textContent).toBe('300')
+  })
+
   it('the reset button restores hp to maxHp and disables itself', async () => {
     const user = userEvent.setup()
     renderWithCharacter()

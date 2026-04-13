@@ -54,6 +54,22 @@ describe('BoostEditor', () => {
     expect(screen.getByTestId('self-boost').textContent).toBe('40')
   })
 
+  it('Codex レビュー反映: 空文字 input は dispatch されない (Boost=0 誤入力防止)', () => {
+    render(
+      <BoardProvider>
+        <BoostProbe />
+        <BoostEditorBound />
+      </BoardProvider>,
+    )
+    const slider = screen.getByLabelText('Boost スライダー') as HTMLInputElement
+    fireEvent.change(slider, { target: { value: '60' } })
+    expect(screen.getByTestId('self-boost').textContent).toBe('60')
+
+    const numberInput = screen.getByLabelText('Boost 数値入力') as HTMLInputElement
+    fireEvent.change(numberInput, { target: { value: '' } })
+    expect(screen.getByTestId('self-boost').textContent).toBe('60')
+  })
+
   it('reset button restores boost to 100 and disables itself when at max', async () => {
     const user = userEvent.setup()
     render(

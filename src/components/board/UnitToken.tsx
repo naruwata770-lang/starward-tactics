@@ -129,7 +129,10 @@ export const UnitToken = memo(function UnitToken({ unit }: UnitTokenProps) {
   // truthy 判定 (`if (unit.hp)`) は hp=0 を null と混同するため禁止 (Codex/Gemini[共通・高] 反映)。
   const { showHpBoost } = useShowHpBoost()
   const isDestroyed = unit.hp === 0
-  const hasHpDisplay = unit.hp !== null && character !== null
+  // 機体選択中かつ hp が number → HP スタック描画可。
+  // boardReducer の不変条件 (characterId と hp は同期) より character !== null なら hp も number だが、
+  // LOAD_STATE で不整合 state を直接注入された corner case のために両方を確認する。
+  const hasHpDisplay = character !== null && unit.hp !== null
   // useDrag に unit を渡す理由 (PR #25 レビュー指摘 [共通: 高] 反映):
   // useDrag が useBoard() で context を購読すると、`useContext` が `React.memo` を
   // 迂回して全 UnitToken を毎フレーム再 render してしまう。unit を引数で渡すことで
@@ -305,12 +308,14 @@ export const UnitToken = memo(function UnitToken({ unit }: UnitTokenProps) {
       */}
       {showHpBoost && (
         <g pointerEvents="none" aria-hidden="true">
-          {hasHpDisplay && character !== null && (
+          {hasHpDisplay && (
             <HpStack
               cx={unit.x}
               cy={unit.y + LABEL_BOTTOM_Y + UNIT_HP_BOOST_GAP_TOP}
-              hp={unit.hp ?? 0}
-              maxHp={character.maxHp}
+              // hasHpDisplay の時点で character !== null && unit.hp !== null だが
+              // TS narrowing が分岐をまたがないので non-null assertion で渡す
+              hp={unit.hp!}
+              maxHp={character!.maxHp}
             />
           )}
           <BoostStack

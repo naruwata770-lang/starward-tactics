@@ -31,7 +31,6 @@ export const HpEditor = memo(function HpEditor({
 }: HpEditorProps) {
   const dispatch = useBoardDispatch()
   const character = findCharacterById(characterId)
-  const maxHp = character?.maxHp ?? null
 
   const setHp = useCallback(
     (value: number) => {
@@ -40,7 +39,7 @@ export const HpEditor = memo(function HpEditor({
     [dispatch, unitId],
   )
 
-  if (character === null || maxHp === null) {
+  if (character === null) {
     // 機体未選択時は HP の意味が無いので操作不可 + ヒント文。
     // disabled な input を出すよりも、その場で意図を伝える文の方が親切。
     return (
@@ -50,8 +49,11 @@ export const HpEditor = memo(function HpEditor({
     )
   }
 
-  // hp が null (機体選択中だが HP 表示なし) のときは maxHp を current 表示扱いに。
-  // 通常は SET_CHARACTER 経由で hp = maxHp が入っているのでこの分岐は防御。
+  // 不変条件 (boardReducer): characterId !== null なら hp は number。
+  // SET_HP(null) を禁止し SET_CHARACTER 経由でしか null 化されないため、
+  // この分岐に来る時点で `hp === null` は通常起きない。万一 (LOAD_STATE で
+  // 不整合 state を直接注入された等) に備えて maxHp に fallback。
+  const maxHp = character.maxHp
   const current = hp ?? maxHp
 
   return (
@@ -77,7 +79,10 @@ export const HpEditor = memo(function HpEditor({
           step={1}
           value={current}
           onChange={(e) => {
-            // 数値入力の中間状態 (空文字 / -) は NaN になりうる
+            // 空文字は `Number('')` で 0 になるため、編集中の中間状態を撃破扱い (HP=0)
+            // にしてしまう (Codex レビュー指摘反映)。空文字は dispatch せず無視する。
+            // ユーザーが Backspace で値を消した瞬間に「撃破」と誤判定されないように。
+            if (e.target.value === '') return
             const v = Number(e.target.value)
             if (!Number.isFinite(v)) return
             setHp(v)

@@ -110,25 +110,18 @@ export function boardReducer(state: BoardState, action: BoardAction): BoardState
 
     case 'SET_HP': {
       // Issue #58: HP の編集。
-      // - characterId === null (機体未選択) なら hp は null 固定 (UI も non-interactive のはずだが
-      //   reducer でも防御。null 以外を渡されても弾く)
-      // - 機体選択中なら 0..maxHp に clamp + 整数化
-      // - 渡された hp が null かつ機体選択中 → 「HP 表示を消す」意図と解釈し許可
-      //   (将来 Inspector に「HP 非表示」ボタンを足す可能性に備える。当面は UI からは出ない)
+      //
+      // 不変条件: characterId と hp は常に同期する (#58 レビュー[共通] 反映):
+      // - characterId === null → hp = null 固定 (HP 表示不能)
+      // - characterId !== null → hp は number (0..maxHp)
+      //
+      // この不変条件を保つため、機体未選択中の SET_HP は no-op (UI 経路で防がれているはずだが防御)。
+      // `hp = null` を直接設定する経路は SET_HP には存在しない (型レベルで number に絞り込み済み)。
+      // 機体解除に伴う hp=null 化は SET_CHARACTER 側で行う (仕様源泉の単一化; Codex レビュー指摘反映)。
       const unit = state.units[action.unitId]
-      if (unit.characterId === null) {
-        // 機体未選択時は hp = null 以外受け付けない
-        if (action.hp === null) return state // すでに null なので no-op
-        return state
-      }
+      if (unit.characterId === null) return state
       const character = findCharacterById(unit.characterId)
-      if (character === null) {
-        // 既知 characterId の lookup が miss する状況は通常起きない (data 整合 test で防止)
-        return state
-      }
-      if (action.hp === null) {
-        return updateUnit(state, action.unitId, { hp: null })
-      }
+      if (character === null) return state
       if (!Number.isFinite(action.hp)) return state
       const clamped = Math.max(0, Math.min(character.maxHp, Math.round(action.hp)))
       return updateUnit(state, action.unitId, { hp: clamped })
