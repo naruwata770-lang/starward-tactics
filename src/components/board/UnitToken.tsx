@@ -28,6 +28,18 @@
  *   - pointerEvents="none" を矢印 <g> に付与し、矢印越しのドラッグ判定が
  *     最外 <g> の onPointerDown に届くようにしている
  *
+ * Issue #75 (iPhone Safari ドラッグ不可) 修正:
+ * - すべての装飾子要素 (コスト数値 / SB ゲージ / 名前ピル / 名前テキスト) に
+ *   `pointerEvents="none"` を付与。
+ * - 仕様上は touch-action は祖先 chain で解決されるはずだが、iOS Safari (WebKit) は
+ *   SVG 子要素 hit 時に親 <g style={touchAction:'none'}> の chain 解決が不安定で
+ *   (WPT pointerevent_touch-action-svg-none-test_touch.html が Safari Preview で fail、
+ *   WebKit bug 200204 / 149854 を参照)、ブラウザの touch ジェスチャに横取りされて
+ *   pointercancel が飛び、useDrag が snapback ルートに入って駒が動かなくなる。
+ * - 装飾子要素を透過させて hit target を <circle> 本体に集約することで chain 解決を
+ *   円本体側でクローズし、Safari でもドラッグできるようにする。
+ * - <tspan> は親 <text> から pointer-events を継承するため個別指定不要。
+ *
  * Phase 8 以降の予定:
  * - ロックオン線 (Phase 8)
  *
@@ -233,6 +245,7 @@ export const UnitToken = memo(function UnitToken({ unit }: UnitTokenProps) {
       {/*
         コスト数値: 円中央。font 20 太字白。
         y を少し上にずらしているのは、下に SB ゲージを置くためのスペース確保。
+        pointerEvents="none": iOS Safari touch-action chain 解決対策 (Issue #75)。
       */}
       <text
         x={unit.x}
@@ -243,6 +256,7 @@ export const UnitToken = memo(function UnitToken({ unit }: UnitTokenProps) {
         fontFamily="system-ui, -apple-system, sans-serif"
         textAnchor="middle"
         dominantBaseline="central"
+        pointerEvents="none"
       >
         {unit.cost}
       </text>
@@ -250,6 +264,7 @@ export const UnitToken = memo(function UnitToken({ unit }: UnitTokenProps) {
       {/*
         SB ゲージ: 2 セグメント小バー。
         none = 両方 dim, half = 左のみ点灯, full = 両方点灯
+        pointerEvents="none": iOS Safari touch-action chain 解決対策 (Issue #75)。
       */}
       {[0, 1].map((i) => {
         const filled = i < sbCount
@@ -263,11 +278,15 @@ export const UnitToken = memo(function UnitToken({ unit }: UnitTokenProps) {
             rx={1}
             ry={1}
             fill={filled ? UNIT_SB_BAR_FILLED_COLOR : UNIT_SB_BAR_EMPTY_COLOR}
+            pointerEvents="none"
           />
         )
       })}
 
-      {/* 名前ラベル: ピル型の背景 */}
+      {/*
+        名前ラベル: ピル型の背景。
+        pointerEvents="none": iOS Safari touch-action chain 解決対策 (Issue #75)。
+      */}
       <rect
         x={unit.x - UNIT_LABEL_WIDTH / 2}
         y={unit.y + LABEL_OFFSET_Y}
@@ -278,12 +297,15 @@ export const UnitToken = memo(function UnitToken({ unit }: UnitTokenProps) {
         fill={UNIT_LABEL_BG_COLOR}
         stroke={color}
         strokeWidth={UNIT_LABEL_STROKE_WIDTH}
+        pointerEvents="none"
       />
 
       {/*
         ピルテキスト: 「{ユニット名} {コア略称}」
         コア略称は CORE_TYPES の色で着色して識別性を上げる。
         textAnchor="middle" によって全体 (tspan 含む) の中心が unit.x に揃う。
+        pointerEvents="none": iOS Safari touch-action chain 解決対策 (Issue #75)。
+        子 <tspan> は親 text から pointer-events を継承するため個別指定不要。
       */}
       <text
         x={unit.x}
@@ -293,6 +315,7 @@ export const UnitToken = memo(function UnitToken({ unit }: UnitTokenProps) {
         fontFamily="system-ui, -apple-system, sans-serif"
         textAnchor="middle"
         dominantBaseline="central"
+        pointerEvents="none"
       >
         <tspan>{label}</tspan>
         <tspan dx={4} fill={coreColor} fontWeight={800}>
