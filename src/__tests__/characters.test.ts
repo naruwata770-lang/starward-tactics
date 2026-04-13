@@ -116,9 +116,11 @@ describe('characters data integrity', () => {
   })
 
   it('every maxHp is within the 星の翼 実測レンジ (1800..3100)', () => {
-    // atwiki 体力一覧 (2025-08-01 時点) の実測域 1872..3020 を包絡する緩衝域。
-    // 桁違い (68, 29000 等) や 旧 placeholder (480/560/620/680) を弾くための
-    // 粗い範囲 check。cost 別に narrow しすぎると将来の調整パッチで壊れる。
+    // 下限 1800 = 実測 min 1872 (snow-wall) の -3.8% 余裕。
+    // 上限 3100 = 実測 max 3020 (griffin) の +2.6% 余裕。
+    // 桁違い (68, 29000 等) や旧 EXVS placeholder (480/560/620/680) を弾くための
+    // 粗い範囲 check。cost 別 narrow 化は手入力ミス検出力は上がるが、将来の
+    // 調整パッチで壊れるリスク (Spec vs Evidence 逆転) の方が大きいので採らない。
     for (const char of CHARACTERS) {
       expect(
         char.maxHp,
