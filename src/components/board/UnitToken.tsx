@@ -42,15 +42,27 @@
 import { memo } from 'react'
 
 import {
+  UNIT_BOOST_BAR_EMPTY_COLOR,
+  UNIT_BOOST_BAR_FILLED_COLOR,
   UNIT_COST_FONT_SIZE,
   UNIT_COST_TEXT_COLOR,
   UNIT_COST_Y_NUDGE,
+  UNIT_DESTROYED_OPACITY,
   UNIT_DIRECTION_ARROW_HALF_WIDTH,
   UNIT_DIRECTION_ARROW_HEAD_LENGTH,
   UNIT_DIRECTION_COLOR,
   UNIT_DIRECTION_LINE_INNER,
   UNIT_DIRECTION_LINE_OUTER,
   UNIT_DIRECTION_LINE_WIDTH,
+  UNIT_HP_BAR_EMPTY_COLOR,
+  UNIT_HP_BAR_FILLED_COLOR,
+  UNIT_HP_BOOST_BAR_HEIGHT,
+  UNIT_HP_BOOST_BAR_WIDTH,
+  UNIT_HP_BOOST_FONT_SIZE,
+  UNIT_HP_BOOST_GAP_MIDDLE,
+  UNIT_HP_BOOST_GAP_TOP,
+  UNIT_HP_BOOST_TEXT_COLOR,
+  UNIT_HP_BOOST_TEXT_HEIGHT,
   UNIT_LABEL_BG_COLOR,
   UNIT_LABEL_FONT_SIZE,
   UNIT_LABEL_GAP,
@@ -69,12 +81,14 @@ import {
   UNIT_STROKE_WIDTH,
 } from '../../constants/board'
 import {
+  BOOST_MAX,
   CORE_TYPE_BY_ID,
   UNIT_COLORS,
   UNIT_LABELS,
 } from '../../constants/game'
 import { findCharacterById } from '../../data/characters'
 import { useDrag } from '../../hooks/useDrag'
+import { useShowHpBoost } from '../../state/BoardContext'
 import type { StarburstLevel, Unit } from '../../types/board'
 import { directionToVector } from './directionGeometry'
 
@@ -111,6 +125,14 @@ export const UnitToken = memo(function UnitToken({ unit }: UnitTokenProps) {
   // CORE_TYPE_BY_ID は constants/game.ts で satisfies により全キー網羅が型で保証されている
   const coreColor = CORE_TYPE_BY_ID[unit.coreType].color
   const sbCount = sbFillCount(unit.starburst)
+  // Issue #58: HP/Boost 表示トグルと撃破判定。
+  // truthy 判定 (`if (unit.hp)`) は hp=0 を null と混同するため禁止 (Codex/Gemini[共通・高] 反映)。
+  const { showHpBoost } = useShowHpBoost()
+  const isDestroyed = unit.hp === 0
+  // 機体選択中かつ hp が number → HP スタック描画可。
+  // boardReducer の不変条件 (characterId と hp は同期) より character !== null なら hp も number だが、
+  // LOAD_STATE で不整合 state を直接注入された corner case のために両方を確認する。
+  const hasHpDisplay = character !== null && unit.hp !== null
   // useDrag に unit を渡す理由 (PR #25 レビュー指摘 [共通: 高] 反映):
   // useDrag が useBoard() で context を購読すると、`useContext` が `React.memo` を
   // 迂回して全 UnitToken を毎フレーム再 render してしまう。unit を引数で渡すことで
@@ -145,8 +167,14 @@ export const UnitToken = memo(function UnitToken({ unit }: UnitTokenProps) {
   const arrowRightX = arrowBaseX - perpDx * UNIT_DIRECTION_ARROW_HALF_WIDTH
   const arrowRightY = arrowBaseY - perpDy * UNIT_DIRECTION_ARROW_HALF_WIDTH
 
+  // 撃破時 (hp=0) は opacity を下げて「落ちている」を伝える。
+  // ドラッグ判定 / 選択 / ロックは通常通り動かしたいので pointerEvents は変えない。
+  // a11y には title に「(撃破)」を付与する。
+  const groupOpacity = isDestroyed ? UNIT_DESTROYED_OPACITY : 1
+
   return (
     <g
+      opacity={groupOpacity}
       onPointerDown={dragHandlers.onPointerDown}
       onPointerMove={dragHandlers.onPointerMove}
       onPointerUp={dragHandlers.onPointerUp}
@@ -157,11 +185,16 @@ export const UnitToken = memo(function UnitToken({ unit }: UnitTokenProps) {
       {/*
         SVG 単独で開いたときやスクリーンリーダーでユニットを識別できるように。
         機体選択時は「{ユニット名}: {機体フルネーム}」として両方の文脈を伝える。
+        撃破状態 (hp=0) は明示的に通知 (opacity 単独だと支援技術には伝わらないため)。
       */}
       <title>
-        {character !== null
-          ? `${UNIT_LABELS[unit.id]}: ${character.name}`
-          : UNIT_LABELS[unit.id]}
+        {(() => {
+          const base =
+            character !== null
+              ? `${UNIT_LABELS[unit.id]}: ${character.name}`
+              : UNIT_LABELS[unit.id]
+          return isDestroyed ? `${base} (撃破)` : base
+        })()}
       </title>
 
       {/* 本体: 円 */}
@@ -266,6 +299,144 @@ export const UnitToken = memo(function UnitToken({ unit }: UnitTokenProps) {
           {unit.coreType}
         </tspan>
       </text>
+
+      {/*
+        Issue #58: HP/Boost 下部スタック (案 B)。
+        - 表示トグル (showHpBoost) が OFF なら描画しない (縦の安全余白は常に確保済み)
+        - HP は機体選択中のみ描画 (機体未選択時は意味が無いため)
+        - Boost は機体不問なので常に描画
+      */}
+      {showHpBoost && (
+        <g pointerEvents="none" aria-hidden="true">
+          {hasHpDisplay && (
+            <HpStack
+              cx={unit.x}
+              cy={unit.y + LABEL_BOTTOM_Y + UNIT_HP_BOOST_GAP_TOP}
+              // hasHpDisplay の時点で character !== null && unit.hp !== null だが
+              // TS narrowing が分岐をまたがないので non-null assertion で渡す
+              hp={unit.hp!}
+              maxHp={character!.maxHp}
+            />
+          )}
+          <BoostStack
+            cx={unit.x}
+            cy={
+              unit.y +
+              LABEL_BOTTOM_Y +
+              UNIT_HP_BOOST_GAP_TOP +
+              UNIT_HP_BOOST_BAR_HEIGHT +
+              UNIT_HP_BOOST_TEXT_HEIGHT +
+              UNIT_HP_BOOST_GAP_MIDDLE
+            }
+            boost={unit.boost}
+          />
+        </g>
+      )}
     </g>
   )
 })
+
+// LABEL の下端 y (unit 中心 y からの相対オフセット)
+const LABEL_BOTTOM_Y = LABEL_OFFSET_Y + UNIT_LABEL_HEIGHT
+
+interface HpStackProps {
+  cx: number
+  cy: number
+  hp: number
+  maxHp: number
+}
+
+/**
+ * HP セクション: バー (充填率 = hp/maxHp) + 数値 (`残/最大` の分数)。
+ * バーは中央寄せ。0/maxHp と maxHp/maxHp の両端を視覚的に判別できる。
+ */
+function HpStack({ cx, cy, hp, maxHp }: HpStackProps) {
+  const ratio = maxHp > 0 ? Math.max(0, Math.min(1, hp / maxHp)) : 0
+  const filledWidth = UNIT_HP_BOOST_BAR_WIDTH * ratio
+  const barLeft = cx - UNIT_HP_BOOST_BAR_WIDTH / 2
+  return (
+    <g>
+      <rect
+        x={barLeft}
+        y={cy}
+        width={UNIT_HP_BOOST_BAR_WIDTH}
+        height={UNIT_HP_BOOST_BAR_HEIGHT}
+        rx={1}
+        ry={1}
+        fill={UNIT_HP_BAR_EMPTY_COLOR}
+      />
+      {filledWidth > 0 && (
+        <rect
+          x={barLeft}
+          y={cy}
+          width={filledWidth}
+          height={UNIT_HP_BOOST_BAR_HEIGHT}
+          rx={1}
+          ry={1}
+          fill={UNIT_HP_BAR_FILLED_COLOR}
+        />
+      )}
+      <text
+        x={cx}
+        y={cy + UNIT_HP_BOOST_BAR_HEIGHT + UNIT_HP_BOOST_TEXT_HEIGHT / 2}
+        fill={UNIT_HP_BOOST_TEXT_COLOR}
+        fontSize={UNIT_HP_BOOST_FONT_SIZE}
+        fontFamily="system-ui, -apple-system, sans-serif"
+        textAnchor="middle"
+        dominantBaseline="central"
+      >
+        {hp} / {maxHp}
+      </text>
+    </g>
+  )
+}
+
+interface BoostStackProps {
+  cx: number
+  cy: number
+  boost: number
+}
+
+/**
+ * Boost セクション: バー (充填率 = boost/100) + 数値 ("80 %")。
+ */
+function BoostStack({ cx, cy, boost }: BoostStackProps) {
+  const ratio = Math.max(0, Math.min(1, boost / BOOST_MAX))
+  const filledWidth = UNIT_HP_BOOST_BAR_WIDTH * ratio
+  const barLeft = cx - UNIT_HP_BOOST_BAR_WIDTH / 2
+  return (
+    <g>
+      <rect
+        x={barLeft}
+        y={cy}
+        width={UNIT_HP_BOOST_BAR_WIDTH}
+        height={UNIT_HP_BOOST_BAR_HEIGHT}
+        rx={1}
+        ry={1}
+        fill={UNIT_BOOST_BAR_EMPTY_COLOR}
+      />
+      {filledWidth > 0 && (
+        <rect
+          x={barLeft}
+          y={cy}
+          width={filledWidth}
+          height={UNIT_HP_BOOST_BAR_HEIGHT}
+          rx={1}
+          ry={1}
+          fill={UNIT_BOOST_BAR_FILLED_COLOR}
+        />
+      )}
+      <text
+        x={cx}
+        y={cy + UNIT_HP_BOOST_BAR_HEIGHT + UNIT_HP_BOOST_TEXT_HEIGHT / 2}
+        fill={UNIT_HP_BOOST_TEXT_COLOR}
+        fontSize={UNIT_HP_BOOST_FONT_SIZE}
+        fontFamily="system-ui, -apple-system, sans-serif"
+        textAnchor="middle"
+        dominantBaseline="central"
+      >
+        {boost} %
+      </text>
+    </g>
+  )
+}

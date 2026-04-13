@@ -43,6 +43,34 @@ export interface UIContextValue {
 
 export const UIContext = createContext<UIContextValue | null>(null)
 
+/**
+ * Issue #58: HP/Boost 表示トグルの Context。
+ *
+ * UIContext (selectedUnit) と分離している理由 (Codex レビュー指摘反映):
+ * UIContext に showHpBoost を相乗りさせると、selectedUnit が変わるたびに
+ * 全 UnitToken (showHpBoost を購読) が再 render される。表示トグルは
+ * selection と独立した周期 (撮影前のオン/オフ) なので、別 Context に
+ * 切り出して購読範囲を狭める。
+ *
+ * - `true` (デフォルト): HP/Boost をトークンの下部スタックに描画する
+ * - `false`: 描画しない (#55 までの見た目に近い、シンプル表示)
+ *
+ * URL には乗せない (現セッションの UI 設定であって state ではない)。
+ * localStorage で永続化する (BoardProvider 側で実装)。
+ *
+ * トークンの縦幅 (UNIT_COORD_Y_MAX) は ON/OFF どちらでも一定で、
+ * トグル切替で既存ユニットがクランプされて移動する副作用を起こさない方針
+ * (Codex 提案[共通・中] 反映)。
+ */
+export interface ShowHpBoostContextValue {
+  showHpBoost: boolean
+  setShowHpBoost: (v: boolean) => void
+}
+
+export const ShowHpBoostContext = createContext<ShowHpBoostContextValue | null>(
+  null,
+)
+
 // ---- hooks ----
 
 /** history 込みの state を取得（Undo/Redo ボタンの有効状態判定など） */
@@ -82,5 +110,17 @@ export function useBoardDispatch(): Dispatch<BoardAction> {
 export function useSelection(): UIContextValue {
   const ctx = useContext(UIContext)
   if (!ctx) throw new Error('useSelection must be used within BoardProvider')
+  return ctx
+}
+
+/**
+ * Issue #58: HP/Boost 表示トグルを取得する hook。
+ * 専用 Context (ShowHpBoostContext) を購読するため、selectedUnit が変わっても
+ * このトグルを読んでいるコンポーネント (UnitToken / HpBoostToggleButton) は
+ * 再 render されない。
+ */
+export function useShowHpBoost(): ShowHpBoostContextValue {
+  const ctx = useContext(ShowHpBoostContext)
+  if (!ctx) throw new Error('useShowHpBoost must be used within BoardProvider')
   return ctx
 }

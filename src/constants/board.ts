@@ -96,6 +96,70 @@ export const UNIT_SB_BAR_FILLED_COLOR = '#fbbf24'
  */
 export const UNIT_SB_BAR_EMPTY_COLOR = '#0f172a' // slate-900
 
+// ---- Issue #58: HP / Boost 下部スタック ----
+
+/**
+ * ラベルピル下端から HP バー上端までの隙間。
+ */
+export const UNIT_HP_BOOST_GAP_TOP = 4
+
+/** HP バーの幅。LABEL と同じにして縦に揃える。 */
+export const UNIT_HP_BOOST_BAR_WIDTH = UNIT_LABEL_WIDTH
+
+/** HP / Boost バー 1 本分の高さ */
+export const UNIT_HP_BOOST_BAR_HEIGHT = 5
+
+/** HP / Boost 数値テキストの font-size (LABEL と同じ) */
+export const UNIT_HP_BOOST_FONT_SIZE = 11
+
+/** HP / Boost 数値テキストの占有高さ */
+export const UNIT_HP_BOOST_TEXT_HEIGHT = 12
+
+/** HP セクションと Boost セクションの間の隙間 */
+export const UNIT_HP_BOOST_GAP_MIDDLE = 2
+
+/**
+ * HP/Boost スタック全体 (バー + 数値 × 2 + 隙間) の高さ。
+ *
+ * `UNIT_COORD_Y_MAX` の計算で使う。トグル OFF でもこの分の余白を常時確保し、
+ * トグル切替でクランプ位置が変動しないようにする (Codex 提案[共通・中] 反映)。
+ *
+ * 内訳:
+ *   ピル下端からの GAP_TOP (4)
+ *   + HP バー (5) + 0..NaN 文字までの数値 (12)
+ *   + GAP_MIDDLE (2)
+ *   + Boost バー (5) + 数値 (12)
+ *   = 40
+ */
+export const UNIT_HP_BOOST_STACK_HEIGHT =
+  UNIT_HP_BOOST_GAP_TOP +
+  UNIT_HP_BOOST_BAR_HEIGHT +
+  UNIT_HP_BOOST_TEXT_HEIGHT +
+  UNIT_HP_BOOST_GAP_MIDDLE +
+  UNIT_HP_BOOST_BAR_HEIGHT +
+  UNIT_HP_BOOST_TEXT_HEIGHT
+
+/** HP バー充填色 (amber-400, SB ゲージと同色だが意味は別) */
+export const UNIT_HP_BAR_FILLED_COLOR = '#fbbf24'
+/** HP バー empty / 撃破時の色 (slate-700) */
+export const UNIT_HP_BAR_EMPTY_COLOR = '#334155'
+/** Boost バー充填色 (sky-400, 味方陣営色と同系) */
+export const UNIT_BOOST_BAR_FILLED_COLOR = '#38bdf8'
+/** Boost バー empty 色 */
+export const UNIT_BOOST_BAR_EMPTY_COLOR = '#334155'
+
+/** HP / Boost 数値テキスト色 */
+export const UNIT_HP_BOOST_TEXT_COLOR = '#e2e8f0'
+
+/**
+ * 撃破状態 (hp=0) のトークン opacity。
+ *
+ * Codex 指摘[共通・中] 反映: 0.4 だと「落ちている」より「薄い」に見えやすいので
+ * 0.45 まで上げ、HP バーを完全 empty にする合わせ技で「撃破」を伝える。
+ * バツ印重ね等の強調表現は別 issue で検討。
+ */
+export const UNIT_DESTROYED_OPACITY = 0.45
+
 /**
  * SVG の stroke は path の中心線から内外に半分ずつ広がる。
  * 安全範囲を計算する際は描画寸法 (半径や高さ) に加えてこの分も内側に
@@ -136,13 +200,23 @@ export const UNIT_COORD_X_MIN = UNIT_X_MARGIN
 export const UNIT_COORD_X_MAX = VIEW_BOX_SIZE - UNIT_X_MARGIN
 /** y の上端: 円の上端 (stroke 含む) が 0 以上になる最小値 */
 export const UNIT_COORD_Y_MIN = UNIT_RADIUS + UNIT_STROKE_HALF
-/** y の下端: ラベル下端 (stroke 含む) が VIEW_BOX_SIZE 以下になる最大値 */
+/**
+ * y の下端: HP/Boost スタック (Issue #58) を含む下部装飾の最下端が
+ * VIEW_BOX_SIZE 以下になる最大値。
+ *
+ * Issue #58 で UNIT_HP_BOOST_STACK_HEIGHT 分の余白を常に確保する。
+ * トグル ON/OFF どちらでもこの値を変えない設計 (Codex 提案[共通・中] 反映):
+ * - トグル切替で `UNIT_COORD_Y_MAX` が変動すると、既存ユニットがクランプ
+ *   されて意図せず移動する副作用が出る
+ * - OFF 時はスタックを描画しないが安全範囲の余白だけ常時確保する
+ */
 export const UNIT_COORD_Y_MAX =
   VIEW_BOX_SIZE -
   UNIT_RADIUS -
   UNIT_LABEL_GAP -
   UNIT_LABEL_HEIGHT -
-  UNIT_LABEL_STROKE_HALF
+  UNIT_LABEL_STROKE_HALF -
+  UNIT_HP_BOOST_STACK_HEIGHT
 
 // ---- Phase 7: 方向矢印 ----
 

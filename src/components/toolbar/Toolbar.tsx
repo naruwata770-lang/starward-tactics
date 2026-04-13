@@ -7,6 +7,7 @@
  */
 
 import { ExportButton } from './ExportButton'
+import { HpBoostToggleButton } from './HpBoostToggleButton'
 import { RedoButton } from './RedoButton'
 import { ResetButton } from './ResetButton'
 import { ShareButton } from './ShareButton'
@@ -14,12 +15,14 @@ import { UndoButton } from './UndoButton'
 
 export function Toolbar() {
   return (
-    <div className="flex items-center justify-between gap-3">
+    <div className="flex flex-wrap items-center justify-between gap-3">
       <h1 className="text-lg font-bold">星の翼 戦術ボード</h1>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <UndoButton />
         <RedoButton />
         <ResetButton />
+        {/* Issue #58: 表示密度の調整。撮影前に頻繁に切替できるよう Toolbar 直置き */}
+        <HpBoostToggleButton />
         <ShareButton />
         <ExportButton />
       </div>

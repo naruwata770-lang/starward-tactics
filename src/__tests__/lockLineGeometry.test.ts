@@ -29,6 +29,8 @@ function makeUnit(overrides: Partial<Unit> & Pick<Unit, 'id' | 'x' | 'y'>): Unit
     coreType: 'B',
     lockTarget: null,
     characterId: null,
+    hp: null,
+    boost: 100,
     ...overrides,
   }
 }
