@@ -11,6 +11,7 @@ import {
   UNIT_COORD_Y_MIN,
 } from '../constants/board'
 import { INITIAL_BOARD_STATE } from '../constants/game'
+import { findCharacterById } from '../data/characters'
 import type { BoardAction, BoardState, Unit, UnitId } from '../types/board'
 
 /**
@@ -66,8 +67,13 @@ export function boardReducer(state: BoardState, action: BoardAction): BoardState
     case 'SET_DIRECTION':
       return updateUnit(state, action.unitId, { direction: action.direction })
 
-    case 'SET_COST':
+    case 'SET_COST': {
+      // characterId 選択中は cost が機体固有値に固定されているため SSOT として変更不可。
+      // UI 側でも CostSelector を disabled にしているが、別経路 (将来の bulk action や
+      // テスト等) からの dispatch も同じガードで弾く (Issue #55 セカンドオピニオン共通[高])
+      if (state.units[action.unitId].characterId !== null) return state
       return updateUnit(state, action.unitId, { cost: action.cost })
+    }
 
     case 'SET_STARBURST':
       return updateUnit(state, action.unitId, { starburst: action.level })
@@ -79,6 +85,24 @@ export function boardReducer(state: BoardState, action: BoardAction): BoardState
       // 自分自身ロックは無効
       if (action.target === action.unitId) return state
       return updateUnit(state, action.unitId, { lockTarget: action.target })
+
+    case 'SET_CHARACTER': {
+      // characterId が string なら lookup → cost を自動同期 (1 アクション = Undo 1 単位)
+      // characterId が null なら cost は据え置き (UX 罠の認識: 機体解除後も機体固有 cost が残る。
+      // Issue #55 セカンドオピニオン Codex 中 反映: コメントで明示)
+      // 未知 id (lookup miss) は **no-op** で state を破壊しない (PR #63 [共通中] 反映)。
+      // 旧実装は characterId=null に書き戻していたため、既に有効な機体が
+      // 選択中だった unit が silent に解除される回帰があった。
+      const character = findCharacterById(action.characterId)
+      if (action.characterId !== null && character === null) {
+        return state
+      }
+      const patch: Partial<Unit> =
+        character !== null
+          ? { characterId: character.id, cost: character.cost }
+          : { characterId: null }
+      return updateUnit(state, action.unitId, patch)
+    }
 
     case 'LOAD_STATE':
       // NOTE: 型レベルでしかバリデーションしていない。

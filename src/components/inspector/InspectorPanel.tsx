@@ -13,6 +13,7 @@
 import type { ReactNode } from 'react'
 
 import { useBoard, useSelection } from '../../state/BoardContext'
+import { CharacterSelector } from './CharacterSelector'
 import { CoreTypeSelector } from './CoreTypeSelector'
 import { CostSelector } from './CostSelector'
 import { LockTargetSelector } from './LockTargetSelector'
@@ -48,8 +49,24 @@ export function InspectorPanel() {
 
       {unit && selectedUnit ? (
         <>
+          <Section title="機体">
+            <CharacterSelector
+              unitId={selectedUnit}
+              current={unit.characterId}
+            />
+          </Section>
+
           <Section title="コスト">
-            <CostSelector unitId={selectedUnit} current={unit.cost} />
+            <CostSelector
+              unitId={selectedUnit}
+              current={unit.cost}
+              disabled={unit.characterId !== null}
+            />
+            {unit.characterId !== null && (
+              <p className="text-xs text-slate-500">
+                機体選択中はコストが固定されます
+              </p>
+            )}
           </Section>
 
           <Section title="覚醒">

@@ -28,8 +28,13 @@ export const UNIT_STROKE_WIDTH = 2
 /** 名前ラベル (ピル) の枠線の幅 */
 export const UNIT_LABEL_STROKE_WIDTH = 1
 
-/** 名前ラベル (ピル) の幅 */
-export const UNIT_LABEL_WIDTH = 56
+/**
+ * 名前ラベル (ピル) の幅。
+ *
+ * Issue #55 で 56 → 64 に拡張: shortName (4-5 文字) 表示に備える。
+ * 4 文字全角 + コア略称 1 文字までは 64 で安全に収まる。
+ */
+export const UNIT_LABEL_WIDTH = 64
 
 /** 名前ラベル (ピル) の高さ */
 export const UNIT_LABEL_HEIGHT = 18
@@ -104,7 +109,10 @@ const UNIT_LABEL_STROKE_HALF = UNIT_LABEL_STROKE_WIDTH / 2
  *
  * 円とラベル (枠線を含む) が viewBox からはみ出さないよう、描画寸法ぶん
  * マージンを取る。
- * - 左/右/上: 円の半径 + 円 stroke 半幅 ぶん内側
+ * - 左/右: 円の半径 + 円 stroke 半幅、もしくはラベルピル半幅 + ラベル stroke 半幅、
+ *           **どちらか大きい方** (Issue #55: shortName 表示で UNIT_LABEL_WIDTH を
+ *           56→64 に拡張して以降、ラベル端が円端より外側になる)
+ * - 上: 円の上端 (stroke 含む) ぶん内側
  * - 下: 円下端より下に出るラベル全体 (gap + label height + label stroke 半幅)
  *       ぶん内側 (上下非対称)
  *
@@ -112,10 +120,20 @@ const UNIT_LABEL_STROKE_HALF = UNIT_LABEL_STROKE_WIDTH / 2
  * `__tests__/boardReducer.test.ts` の不変条件テストで、これらの定数から
  * 計算される視覚 bounding box が [0, VIEW_BOX_SIZE] に収まることを保証している。
  */
-/** x の左端: 円の左端 (stroke 含む) が 0 以上になる最小値 */
-export const UNIT_COORD_X_MIN = UNIT_RADIUS + UNIT_STROKE_HALF
-/** x の右端: 円の右端 (stroke 含む) が VIEW_BOX_SIZE 以下になる最大値 */
-export const UNIT_COORD_X_MAX = VIEW_BOX_SIZE - UNIT_RADIUS - UNIT_STROKE_HALF
+
+/**
+ * 円幅とラベル幅のうち「中心からの最大はみ出し量」を取った X 方向のマージン。
+ * Issue #55 で UNIT_LABEL_WIDTH=64 がラベル支配となったため max を取る。
+ */
+const UNIT_X_MARGIN = Math.max(
+  UNIT_RADIUS + UNIT_STROKE_HALF,
+  UNIT_LABEL_WIDTH / 2 + UNIT_LABEL_STROKE_HALF,
+)
+
+/** x の左端: 円またはラベルの左端 (stroke 含む) が 0 以上になる最小値 */
+export const UNIT_COORD_X_MIN = UNIT_X_MARGIN
+/** x の右端: 円またはラベルの右端 (stroke 含む) が VIEW_BOX_SIZE 以下になる最大値 */
+export const UNIT_COORD_X_MAX = VIEW_BOX_SIZE - UNIT_X_MARGIN
 /** y の上端: 円の上端 (stroke 含む) が 0 以上になる最小値 */
 export const UNIT_COORD_Y_MIN = UNIT_RADIUS + UNIT_STROKE_HALF
 /** y の下端: ラベル下端 (stroke 含む) が VIEW_BOX_SIZE 以下になる最大値 */

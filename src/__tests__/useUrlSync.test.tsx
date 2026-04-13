@@ -91,6 +91,7 @@ describe('useUrlSync', () => {
             starburst: 'none',
             coreType: 'B',
             lockTarget: null,
+            characterId: null,
           },
           ally: {
             id: 'ally',
@@ -101,6 +102,7 @@ describe('useUrlSync', () => {
             starburst: 'none',
             coreType: 'B',
             lockTarget: null,
+            characterId: null,
           },
           enemy1: {
             id: 'enemy1',
@@ -111,6 +113,7 @@ describe('useUrlSync', () => {
             starburst: 'none',
             coreType: 'B',
             lockTarget: null,
+            characterId: null,
           },
           enemy2: {
             id: 'enemy2',
@@ -121,6 +124,7 @@ describe('useUrlSync', () => {
             starburst: 'none',
             coreType: 'B',
             lockTarget: null,
+            characterId: null,
           },
         },
       }))
@@ -164,6 +168,7 @@ describe('useUrlSync', () => {
           starburst: 'none',
           coreType: 'B',
           lockTarget: null,
+            characterId: null,
         },
         ally: {
           id: 'ally',
@@ -174,6 +179,7 @@ describe('useUrlSync', () => {
           starburst: 'none',
           coreType: 'B',
           lockTarget: null,
+            characterId: null,
         },
         enemy1: {
           id: 'enemy1',
@@ -184,6 +190,7 @@ describe('useUrlSync', () => {
           starburst: 'none',
           coreType: 'B',
           lockTarget: null,
+            characterId: null,
         },
         enemy2: {
           id: 'enemy2',
@@ -194,6 +201,7 @@ describe('useUrlSync', () => {
           starburst: 'none',
           coreType: 'B',
           lockTarget: null,
+            characterId: null,
         },
       },
     }

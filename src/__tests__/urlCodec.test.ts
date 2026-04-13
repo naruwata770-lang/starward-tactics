@@ -1,11 +1,8 @@
 /**
  * urlCodec の round-trip / バリデーション / URL 長 を検証。
  *
- * Phase 5 Issue #6 の完了条件:
- * - round-trip: encode → decode で同じ state が得られる
- * - 不正な入力で null
- * - 古いバージョンのフォーマットも decode できる (将来用、今は v1 だけ)
- * - URL 長が 2000 文字を超えないこと
+ * Phase 5 Issue #6 で v1 を導入。
+ * Issue #55 で v2 (セクション分割 + characterCode trailing optional) を導入。
  */
 
 import { describe, expect, it } from 'vitest'
@@ -17,13 +14,16 @@ import {
   UNIT_COORD_Y_MIN,
 } from '../constants/board'
 import { INITIAL_BOARD_STATE } from '../constants/game'
+import { CHARACTERS } from '../data/characters'
 import {
   SCHEMA_VERSION,
   decode,
   decodeV1,
   decodeV1Unit,
+  decodeV2,
   encode,
   encodeV1,
+  encodeV2,
   isInitialEncoded,
 } from '../state/urlCodec'
 import type { BoardState, Unit } from '../types/board'
@@ -35,6 +35,12 @@ function withUnit(state: BoardState, patch: Partial<Unit>): BoardState {
       self: { ...state.units.self, ...patch },
     },
   }
+}
+
+/** base64url helper for tests (raw payload を URL prefix に組み立てる) */
+function b64url(ascii: string): string {
+  const b64 = btoa(ascii)
+  return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
 describe('urlCodec', () => {
@@ -57,6 +63,7 @@ describe('urlCodec', () => {
             starburst: 'half',
             coreType: 'F',
             lockTarget: 'enemy1',
+            characterId: null,
           },
           ally: {
             id: 'ally',
@@ -67,6 +74,7 @@ describe('urlCodec', () => {
             starburst: 'full',
             coreType: 'S',
             lockTarget: 'enemy2',
+            characterId: null,
           },
           enemy1: {
             id: 'enemy1',
@@ -77,6 +85,7 @@ describe('urlCodec', () => {
             starburst: 'none',
             coreType: 'M',
             lockTarget: 'self',
+            characterId: null,
           },
           enemy2: {
             id: 'enemy2',
@@ -87,6 +96,7 @@ describe('urlCodec', () => {
             starburst: 'half',
             coreType: 'D',
             lockTarget: null,
+            characterId: null,
           },
         },
       }
@@ -156,11 +166,12 @@ describe('urlCodec', () => {
 
     it('returns null for an unknown version', () => {
       expect(decode('v0.xxxx')).toBeNull()
-      expect(decode('v2.xxxx')).toBeNull()
+      expect(decode('v3.xxxx')).toBeNull()
     })
 
     it('returns null for invalid base64url', () => {
       expect(decode('v1.@@@@@')).toBeNull()
+      expect(decode('v2.@@@@@')).toBeNull()
     })
 
     it('returns null when unit count is wrong', () => {
@@ -168,9 +179,15 @@ describe('urlCodec', () => {
     })
 
     it('returns null when a unit field count is wrong', () => {
-      // 6 fields instead of 7
+      // 6 fields instead of 7 (v1 は厳密に 7 フィールドを要求)
       expect(
         decodeV1('260,460,0,d,n,B|460,460,0,d,n,B,_|260,260,4,d,n,B,_|460,260,4,d,n,B,_'),
+      ).toBeNull()
+    })
+
+    it('v1 also rejects 8 fields (trailing optional は v2 の挙動)', () => {
+      expect(
+        decodeV1Unit(['260', '460', '0', 'd', 'n', 'B', '_', '01'], 'self'),
       ).toBeNull()
     })
 
@@ -237,13 +254,14 @@ describe('urlCodec', () => {
 
   describe('URL length budget', () => {
     it('keeps the encoded URL well under 2000 characters even at boundaries', () => {
-      // 全ユニット最大値で encode しても URL 全体 (?b= 含む) が短いことを保証
+      // 全ユニット最大値 + 全ユニット characterId で encode しても URL 全体 (?b= 含む) が
+      // 短いことを保証 (v2 で characterCode が trailing として乗っても許容範囲か)
       const heavy: BoardState = {
         units: {
-          self: { ...INITIAL_BOARD_STATE.units.self, x: UNIT_COORD_X_MAX, y: UNIT_COORD_Y_MAX, lockTarget: 'enemy2' },
-          ally: { ...INITIAL_BOARD_STATE.units.ally, x: UNIT_COORD_X_MAX, y: UNIT_COORD_Y_MAX, lockTarget: 'enemy1' },
-          enemy1: { ...INITIAL_BOARD_STATE.units.enemy1, x: UNIT_COORD_X_MAX, y: UNIT_COORD_Y_MAX, lockTarget: 'self' },
-          enemy2: { ...INITIAL_BOARD_STATE.units.enemy2, x: UNIT_COORD_X_MAX, y: UNIT_COORD_Y_MAX, lockTarget: 'ally' },
+          self: { ...INITIAL_BOARD_STATE.units.self, x: UNIT_COORD_X_MAX, y: UNIT_COORD_Y_MAX, lockTarget: 'enemy2', characterId: CHARACTERS[0].id },
+          ally: { ...INITIAL_BOARD_STATE.units.ally, x: UNIT_COORD_X_MAX, y: UNIT_COORD_Y_MAX, lockTarget: 'enemy1', characterId: CHARACTERS[1].id },
+          enemy1: { ...INITIAL_BOARD_STATE.units.enemy1, x: UNIT_COORD_X_MAX, y: UNIT_COORD_Y_MAX, lockTarget: 'self', characterId: CHARACTERS[2].id },
+          enemy2: { ...INITIAL_BOARD_STATE.units.enemy2, x: UNIT_COORD_X_MAX, y: UNIT_COORD_Y_MAX, lockTarget: 'ally', characterId: CHARACTERS[3].id },
         },
       }
       const url = `?b=${encode(heavy)}`
@@ -263,8 +281,9 @@ describe('urlCodec', () => {
   })
 
   describe('schema version', () => {
-    it('encode prefixes with the current SCHEMA_VERSION', () => {
+    it('encode prefixes with the current SCHEMA_VERSION (v2)', () => {
       expect(encode(INITIAL_BOARD_STATE).startsWith(`${SCHEMA_VERSION}.`)).toBe(true)
+      expect(SCHEMA_VERSION).toBe('v2')
     })
 
     it('encodeV1 produces an ASCII-only payload', () => {
@@ -272,6 +291,135 @@ describe('urlCodec', () => {
       const payload = encodeV1(INITIAL_BOARD_STATE)
       // eslint-disable-next-line no-control-regex
       expect(/^[\x00-\x7F]*$/.test(payload)).toBe(true)
+    })
+
+    it('encodeV2 produces an ASCII-only payload', () => {
+      const payload = encodeV2(INITIAL_BOARD_STATE)
+      // eslint-disable-next-line no-control-regex
+      expect(/^[\x00-\x7F]*$/.test(payload)).toBe(true)
+    })
+
+    it('encodeV2 starts with the u= section prefix', () => {
+      expect(encodeV2(INITIAL_BOARD_STATE).startsWith('u=')).toBe(true)
+    })
+  })
+
+  describe('v2 codec', () => {
+    it('round-trips via decode(encode(state))', () => {
+      const state = withUnit(INITIAL_BOARD_STATE, {
+        characterId: CHARACTERS[0].id,
+        cost: CHARACTERS[0].cost,
+      })
+      expect(decode(encode(state))).toEqual(state)
+    })
+
+    it('encodes characterCode as trailing field after the fixed 7', () => {
+      // 1 ユニットだけ characterId を入れて、payload に code が現れることを確認
+      const state = withUnit(INITIAL_BOARD_STATE, {
+        characterId: CHARACTERS[0].id,
+        cost: CHARACTERS[0].cost,
+      })
+      const payload = encodeV2(state)
+      const selfChunk = payload.replace(/^u=/, '').split('|')[0]
+      const fields = selfChunk.split(',')
+      expect(fields).toHaveLength(8)
+      expect(fields[7]).toBe(CHARACTERS[0].code)
+    })
+
+    it('encodes empty characterCode for null characterId', () => {
+      const payload = encodeV2(INITIAL_BOARD_STATE)
+      const selfChunk = payload.replace(/^u=/, '').split('|')[0]
+      const fields = selfChunk.split(',')
+      expect(fields).toHaveLength(8)
+      expect(fields[7]).toBe('')
+    })
+
+    it('decodeV2 falls back to characterId=null for unknown code without rejecting state', () => {
+      const fixed = '260,460,0,d,n,B,_'
+      const payload = `u=${fixed},ZZ|${fixed},|${fixed},|${fixed},`
+      const state = decodeV2(payload)
+      expect(state).not.toBeNull()
+      expect(state?.units.self.characterId).toBeNull()
+    })
+
+    it('decodeV2 ignores extra trailing fields (forward compat for #A hp/boost)', () => {
+      // 9, 10 番目のフィールドは未来の hp/boost を想定して ignore
+      const fixed = '260,460,0,d,n,B,_'
+      const code = CHARACTERS[0].code
+      const payload = `u=${fixed},${code},9999,8888|${fixed},|${fixed},|${fixed},`
+      const state = decodeV2(payload)
+      expect(state).not.toBeNull()
+      expect(state?.units.self.characterId).toBe(CHARACTERS[0].id)
+    })
+
+    it('decodeV2 ignores unknown prefix sections (forward compat)', () => {
+      const fixed = '260,460,0,d,n,B,_'
+      const payload = `u=${fixed},|${fixed},|${fixed},|${fixed},;tc=6,6;futureKey=anything`
+      const state = decodeV2(payload)
+      expect(state).not.toBeNull()
+    })
+
+    it('decodeV2 accepts trailing semicolon (lenient skip of empty sections)', () => {
+      // Codex/Gemini レビュー[共通] 反映: 末尾 `;` や連続 `;;` は forward compat で skip
+      const fixed = '260,460,0,d,n,B,_'
+      const payload = `u=${fixed},|${fixed},|${fixed},|${fixed},;`
+      const state = decodeV2(payload)
+      expect(state).not.toBeNull()
+    })
+
+    it('decodeV2 accepts consecutive semicolons between sections', () => {
+      const fixed = '260,460,0,d,n,B,_'
+      const payload = `u=${fixed},|${fixed},|${fixed},|${fixed},;;tc=6,6`
+      const state = decodeV2(payload)
+      expect(state).not.toBeNull()
+    })
+
+    it('decodeV2 rejects when u= section is missing', () => {
+      expect(decodeV2('tc=6,6')).toBeNull()
+    })
+
+    it('decodeV2 rejects duplicate u= section', () => {
+      const fixed = '260,460,0,d,n,B,_'
+      const payload = `u=${fixed},|${fixed},|${fixed},|${fixed},;u=${fixed},|${fixed},|${fixed},|${fixed},`
+      expect(decodeV2(payload)).toBeNull()
+    })
+
+    it('decodeV2 rejects malformed section without =', () => {
+      expect(decodeV2('uvalue')).toBeNull()
+    })
+
+    it('decodeV2 rejects empty payload', () => {
+      expect(decodeV2('')).toBeNull()
+    })
+
+    it('decodeV2 rejects when u= has wrong number of units', () => {
+      const fixed = '260,460,0,d,n,B,_,'
+      expect(decodeV2(`u=${fixed}|${fixed}`)).toBeNull()
+    })
+
+    it('decodeV2 rejects when fixed 7 fields are missing (no leniency on prefix)', () => {
+      // 6 fields in self unit
+      const broken = '260,460,0,d,n,B'
+      const ok = '260,460,0,d,n,B,_,'
+      expect(decodeV2(`u=${broken}|${ok}|${ok}|${ok}`)).toBeNull()
+    })
+
+    it('decodeV2 rejects when fixed 7 fields contain invalid values', () => {
+      const broken = '260,460,0,z,n,B,_,' // cost token z is invalid
+      const ok = '260,460,0,d,n,B,_,'
+      expect(decodeV2(`u=${broken}|${ok}|${ok}|${ok}`)).toBeNull()
+    })
+
+    it('decode dispatches v1 to decodeV1 (backward compat: characterId=null)', () => {
+      // v1 payload を直接組み立てて decode
+      const v1Payload = '260,460,0,d,n,B,_|460,460,0,d,n,B,_|260,260,4,d,n,B,_|460,260,4,d,n,B,_'
+      const v1Url = `v1.${b64url(v1Payload)}`
+      const decoded = decode(v1Url)
+      expect(decoded).not.toBeNull()
+      expect(decoded?.units.self.characterId).toBeNull()
+      expect(decoded?.units.ally.characterId).toBeNull()
+      expect(decoded?.units.enemy1.characterId).toBeNull()
+      expect(decoded?.units.enemy2.characterId).toBeNull()
     })
   })
 })

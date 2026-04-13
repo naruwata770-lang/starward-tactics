@@ -62,4 +62,25 @@ describe('CostSelector', () => {
     // dispatch → reducer → BoardProvider の present 更新 → Probe の再 render
     expect(screen.getByTestId('self-cost').textContent).toBe('2')
   })
+
+  it('Issue #55: disabled prop disables every button and aria-disables the group', async () => {
+    const user = userEvent.setup()
+    render(
+      <BoardProvider>
+        <CostProbe />
+        <CostSelector unitId="self" current={3} disabled />
+      </BoardProvider>,
+    )
+
+    for (const label of ['1.5', '2', '2.5', '3']) {
+      const btn = screen.getByRole('button', { name: label }) as HTMLButtonElement
+      expect(btn.disabled).toBe(true)
+    }
+    const group = screen.getByRole('group', { name: 'コスト' })
+    expect(group.getAttribute('aria-disabled')).toBe('true')
+
+    // disabled なのでクリックしても state は変わらない (UI 側の防御)
+    await user.click(screen.getByRole('button', { name: '2' }))
+    expect(screen.getByTestId('self-cost').textContent).toBe('3')
+  })
 })

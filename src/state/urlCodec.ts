@@ -1,30 +1,58 @@
 /**
  * 盤面状態 ↔ URL クエリパラメータ間のエンコード/デコード。
  *
- * Phase 5 (Issue #6) で導入。URL 共有のために盤面状態をコンパクトに直列化する。
+ * Phase 5 (Issue #6) で v1 を導入。Issue #55 で v2 を導入。
  *
  * フォーマット: `?b=<version>.<base64url payload>`
  *
  * - `<version>` は base64url の外に出している。decode 前に「どのスキーマで解釈
- *   するか」を判定でき、v2 が来たときも v1 を残せる。
- * - v1 payload は **期待順 ['self','ally','enemy1','enemy2'] 固定** の `|` 区切り、
- *   各ユニットは 7 フィールドの `,` 区切り (順: x, y, direction, cost, starburst,
- *   coreType, lockTarget)。
- * - 離散型 (Cost / StarburstLevel / CoreType / Direction / LockTarget) は
- *   **列挙インデックス/トークン** で持つ。`parseFloat` のような曖昧な数値 parse
- *   は使わず、lookup table で復元する (`12abc → 12` のような通り抜けを防ぐ)。
- * - x/y は `Math.round` で整数化した上で、decode では `Number()` + `isInteger`
- *   で検証し、constants/board.ts の安全範囲外なら reject (clamp に頼らない)。
+ *   するか」を判定でき、新バージョンでも旧版を残せる。
  *
- * バージョニング戦略:
+ * ============================================================
+ *  v1 payload (互換維持のために残す。encode はもう使わない)
+ * ============================================================
+ *
+ * - 期待順 ['self','ally','enemy1','enemy2'] 固定の `|` 区切り。
+ * - 各ユニットは 7 フィールドの `,` 区切り (x, y, direction, cost, starburst,
+ *   coreType, lockTarget)。characterId は無いので decode 後は null になる。
+ *
+ * ============================================================
+ *  v2 payload (Issue #55 で導入。encode/decode 両対応)
+ * ============================================================
+ *
+ * セクション分割型: `<key>=<value>;<key>=<value>...`
+ *
+ * - v2 時点で必須セクションは `u=` (units) のみ。
+ *   - `u=<self>|<ally>|<enemy1>|<enemy2>` の 4 ユニット固定。
+ *   - 各ユニットは固定 7 フィールド (v1 と同じ x..lockTarget) + trailing optional
+ *     な 8 番目 `characterCode` (空文字で null)。
+ *   - 9 番目以降のフィールドは forward compat として **ignore** する
+ *     (後続 #A で `hp,boost` を末尾に追加する想定)。
+ * - 未知 prefix セクション (`tc=` 等) は **ignore** して残りを decode する
+ *   (forward compat)。
+ *
+ * decode の厳格性 (Issue #55 セカンドオピニオン共通[高] 反映):
+ * - **strict** (1 つでも違反 → 全体 reject):
+ *   - `u=` セクションが 0 個または 2 個以上 (重複・欠落)
+ *   - `u=` の `|` 区切りが 4 個でない
+ *   - **固定 7 フィールド** の値・型・列挙トークン・整数範囲が違反
+ * - **lenient** (局所 fallback のみ):
+ *   - 8 番目 characterCode が空文字 / 不在 → characterId=null
+ *   - 8 番目 characterCode が辞書未収録 → characterId=null + DEV warn
+ *   - 9 番目以降のフィールド → ignore
+ *   - 未知セクション → ignore
+ *
+ * ============================================================
+ *  バージョニング戦略
+ * ============================================================
+ *
  * - v1 decoder は `UNIT_IDS` の実行時値を見ず、期待順をハードコードする。
- *   これにより v2 で 5 機構成にしても v1 decoder が壊れない。
- * - 後方互換: v2 が来たら `decode()` 内で version-dispatch する。v1 decoder は
- *   そのまま残し、v1 → 現在の BoardState 型への正規化は decoder の責務。
- * - encode は常に最新 (v1) を出力する。
+ *   v2 で 5 機構成にしても v1 decoder が壊れない。
+ * - 後方互換: `decode()` 内で version-dispatch する。
+ * - encode は常に最新 (v2) を出力する。
  *
- * payload は ASCII 限定 (略号 + 数字のみ)。将来 JSON 化や日本語ラベル混入を
- * したくなったら、base64url 実装に Unicode 対応を加える必要があるので注意。
+ * payload は ASCII 限定 (略号 + 数字 + 区切り文字)。将来 JSON 化や日本語ラベル
+ * 混入をしたくなったら、base64url 実装に Unicode 対応を加える必要がある。
  */
 
 import {
@@ -34,6 +62,10 @@ import {
   UNIT_COORD_Y_MIN,
 } from '../constants/board'
 import { INITIAL_BOARD_STATE } from '../constants/game'
+import {
+  findCharacterByCode,
+  findCharacterById,
+} from '../data/characters'
 import type {
   BoardState,
   CoreType,
@@ -44,23 +76,30 @@ import type {
   UnitId,
 } from '../types/board'
 
-export const SCHEMA_VERSION = 'v1'
+/**
+ * encode が現在出力するスキーマバージョン。
+ * decode は v1 / v2 の両方を受け付ける (旧 URL の後方互換)。
+ */
+export const SCHEMA_VERSION = 'v2'
 
 /**
  * v1 decoder が期待するユニットの順序。
- * UNIT_IDS の実行時値ではなく、後方互換のため明示的にハードコード。
- * v2 でユニット数や順序が変わっても v1 decoder が壊れないようにする。
+ * v2 でも同じ順序を使うため共通定数化。
  */
-const V1_UNIT_ORDER: readonly UnitId[] = ['self', 'ally', 'enemy1', 'enemy2']
+const UNIT_ORDER: readonly UnitId[] = ['self', 'ally', 'enemy1', 'enemy2']
 
+/** v1 では 7 フィールド固定 */
 const V1_UNIT_FIELD_COUNT = 7
+
+/** v2 で「strict 検証する固定 prefix」のフィールド数。これより多い末尾は optional */
+const V2_FIXED_FIELD_COUNT = 7
 
 /**
  * 整数化した安全範囲。
  *
  * UNIT_COORD_*_{MIN,MAX} は浮動小数 (例: UNIT_COORD_Y_MAX = 665.5) なので、
  * Math.round で整数化した値が元の範囲を超えるケースがある。
- * v1 では座標を整数で持つ方針なので、`ceil(MIN)..floor(MAX)` の整数範囲を
+ * v1/v2 では座標を整数で持つ方針なので、`ceil(MIN)..floor(MAX)` の整数範囲を
  * 別途定義し、encode 側ではこの範囲に clamp してから round、decode 側では
  * この整数範囲で検証する。両側で同じ範囲を使うので round-trip は安全。
  */
@@ -130,36 +169,20 @@ const DIRECTION_INDEX_TO_DEGREE: readonly Direction[] = [
 
 // ---- base64url helpers ----
 
-/**
- * base64 → base64url 変換。
- * `+` → `-`、`/` → `_`、末尾の `=` を削除。
- */
 function base64ToBase64Url(b64: string): string {
   return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
-/**
- * base64url → base64 変換。padding を復元。
- */
 function base64UrlToBase64(b64url: string): string {
   const replaced = b64url.replace(/-/g, '+').replace(/_/g, '/')
   const padLen = (4 - (replaced.length % 4)) % 4
   return replaced + '='.repeat(padLen)
 }
 
-/**
- * ASCII 文字列を base64url にエンコード。
- * v1 payload は ASCII 限定なので btoa() の Latin-1 制約は問題にならない。
- */
 function encodeBase64Url(ascii: string): string {
-  // SSR ガード: btoa は Node にもあるが、念のため window 経由を避けて直接呼ぶ
   return base64ToBase64Url(btoa(ascii))
 }
 
-/**
- * base64url を ASCII 文字列にデコード。
- * 不正な入力 (`atob` が throw する場合) は null を返す。
- */
 function decodeBase64Url(b64url: string): string | null {
   try {
     return atob(base64UrlToBase64(b64url))
@@ -168,68 +191,35 @@ function decodeBase64Url(b64url: string): string | null {
   }
 }
 
-// ---- v1 encoder ----
+// ---- 共通: 固定 7 フィールドの strict 検証 ----
 
-function encodeV1Unit(unit: Unit): string {
-  const directionIndex = DIRECTION_INDEX_TO_DEGREE.indexOf(unit.direction)
-  // 型レベルで Direction は離散値だが、念のため index === -1 をガード
-  if (directionIndex === -1) {
-    throw new Error(`Invalid direction: ${String(unit.direction)}`)
-  }
-  const costToken = COST_VALUE_TO_TOKEN[unit.cost]
-  const starburstToken = STARBURST_LEVEL_TO_TOKEN[unit.starburst]
-  const lockToken = LOCK_TARGET_ID_TO_TOKEN[unit.lockTarget ?? 'null']
-
-  // 整数範囲に clamp してから round することで、decode 側の検証範囲と確実に整合する
-  const xInt = clampInt(Math.round(unit.x), X_INT_MIN, X_INT_MAX)
-  const yInt = clampInt(Math.round(unit.y), Y_INT_MIN, Y_INT_MAX)
-
-  return [
-    xInt.toString(),
-    yInt.toString(),
-    directionIndex.toString(),
-    costToken,
-    starburstToken,
-    unit.coreType,
-    lockToken,
-  ].join(',')
+interface FixedFields {
+  x: number
+  y: number
+  direction: Direction
+  cost: Cost
+  starburst: StarburstLevel
+  coreType: CoreType
+  lockTarget: UnitId | null
 }
-
-export function encodeV1(state: BoardState): string {
-  return V1_UNIT_ORDER.map((id) => encodeV1Unit(state.units[id])).join('|')
-}
-
-export function encode(state: BoardState): string {
-  return `${SCHEMA_VERSION}.${encodeBase64Url(encodeV1(state))}`
-}
-
-// ---- v1 decoder ----
 
 /**
- * 1 ユニット分のフィールド配列を Unit に復元。
- * 1 つでも検証に失敗したら null を返す。
- *
- * テスト容易性のため独立 export。
+ * 固定 7 フィールド (x..lockTarget) を strict 検証して返す。
+ * 1 つでも違反したら null。v1 / v2 共通。
  */
-export function decodeV1Unit(fields: string[], id: UnitId): Unit | null {
-  if (fields.length !== V1_UNIT_FIELD_COUNT) return null
-
+function decodeFixedFields(fields: string[], id: UnitId): FixedFields | null {
   const [xStr, yStr, dirStr, costStr, sbStr, coreStr, lockStr] = fields
 
-  // x / y: Number() + isInteger で厳格に検証 (parseFloat の通り抜けを避ける)
-  // 範囲は整数化した X_INT_*/Y_INT_* を使い、encode 側の clamp 後の値と整合させる
   const x = Number(xStr)
   const y = Number(yStr)
   if (!Number.isInteger(x) || !Number.isInteger(y)) return null
   if (x < X_INT_MIN || x > X_INT_MAX) return null
   if (y < Y_INT_MIN || y > Y_INT_MAX) return null
 
-  // direction: 0..7 のインデックス
   const dirIdx = Number(dirStr)
   if (!Number.isInteger(dirIdx) || dirIdx < 0 || dirIdx > 7) return null
   const direction = DIRECTION_INDEX_TO_DEGREE[dirIdx]
 
-  // cost / starburst / core / lockTarget: lookup table で復元
   const cost = COST_TOKEN_TO_VALUE[costStr]
   if (cost === undefined) return null
 
@@ -245,25 +235,62 @@ export function decodeV1Unit(fields: string[], id: UnitId): Unit | null {
   // 自己ロック禁止 (UI / reducer と同じ制約)
   if (lockTarget === id) return null
 
-  return {
-    id,
-    x,
-    y,
-    direction,
-    cost,
-    starburst,
-    coreType,
-    lockTarget,
+  return { x, y, direction, cost, starburst, coreType, lockTarget }
+}
+
+function encodeFixedFields(unit: Unit): string {
+  const directionIndex = DIRECTION_INDEX_TO_DEGREE.indexOf(unit.direction)
+  if (directionIndex === -1) {
+    throw new Error(`Invalid direction: ${String(unit.direction)}`)
   }
+  const costToken = COST_VALUE_TO_TOKEN[unit.cost]
+  const starburstToken = STARBURST_LEVEL_TO_TOKEN[unit.starburst]
+  const lockToken = LOCK_TARGET_ID_TO_TOKEN[unit.lockTarget ?? 'null']
+
+  const xInt = clampInt(Math.round(unit.x), X_INT_MIN, X_INT_MAX)
+  const yInt = clampInt(Math.round(unit.y), Y_INT_MIN, Y_INT_MAX)
+
+  return [
+    xInt.toString(),
+    yInt.toString(),
+    directionIndex.toString(),
+    costToken,
+    starburstToken,
+    unit.coreType,
+    lockToken,
+  ].join(',')
+}
+
+// ---- v1 encoder / decoder ----
+
+/**
+ * v1 encoder。
+ * Issue #55 以降 encode は v2 を使うが、v1 文字列を生成するヘルパとして残す
+ * (テスト容易性 + 万一の rollback 用)。
+ */
+export function encodeV1(state: BoardState): string {
+  return UNIT_ORDER.map((id) => encodeFixedFields(state.units[id])).join('|')
+}
+
+/**
+ * 1 ユニット分のフィールド配列を Unit に復元 (v1)。
+ * 1 つでも検証に失敗したら null を返す。テスト容易性のため独立 export。
+ */
+export function decodeV1Unit(fields: string[], id: UnitId): Unit | null {
+  if (fields.length !== V1_UNIT_FIELD_COUNT) return null
+  const fixed = decodeFixedFields(fields, id)
+  if (fixed === null) return null
+  // v1 は characterId を持たないので null 固定
+  return { id, ...fixed, characterId: null }
 }
 
 export function decodeV1(payload: string): BoardState | null {
   const unitChunks = payload.split('|')
-  if (unitChunks.length !== V1_UNIT_ORDER.length) return null
+  if (unitChunks.length !== UNIT_ORDER.length) return null
 
   const units: Partial<Record<UnitId, Unit>> = {}
-  for (let i = 0; i < V1_UNIT_ORDER.length; i++) {
-    const id = V1_UNIT_ORDER[i]
+  for (let i = 0; i < UNIT_ORDER.length; i++) {
+    const id = UNIT_ORDER[i]
     const unit = decodeV1Unit(unitChunks[i].split(','), id)
     if (unit === null) return null
     units[id] = unit
@@ -272,20 +299,123 @@ export function decodeV1(payload: string): BoardState | null {
   return { units: units as Record<UnitId, Unit> }
 }
 
+// ---- v2 encoder / decoder ----
+
+/**
+ * v2 ユニットエンコード: 固定 7 フィールド + 8 番目 characterCode (空文字 = null)。
+ */
+function encodeV2Unit(unit: Unit): string {
+  const character = findCharacterById(unit.characterId)
+  const characterCode = character?.code ?? ''
+  return `${encodeFixedFields(unit)},${characterCode}`
+}
+
+export function encodeV2(state: BoardState): string {
+  const units = UNIT_ORDER.map((id) => encodeV2Unit(state.units[id])).join('|')
+  return `u=${units}`
+}
+
+/**
+ * v2 1 ユニット分の decode。
+ * - fields は `,` 区切りの配列
+ * - 固定 7 フィールド未満なら reject
+ * - 8 番目 (characterCode) は trailing optional。空文字 / 不在 / 未知 code は characterId=null
+ * - 9 番目以降は forward compat として ignore
+ */
+function decodeV2Unit(fields: string[], id: UnitId): Unit | null {
+  if (fields.length < V2_FIXED_FIELD_COUNT) return null
+  const fixed = decodeFixedFields(fields.slice(0, V2_FIXED_FIELD_COUNT), id)
+  if (fixed === null) return null
+
+  // characterCode は trailing optional
+  const codeRaw = fields[V2_FIXED_FIELD_COUNT]
+  let characterId: string | null = null
+  if (codeRaw !== undefined && codeRaw !== '') {
+    const character = findCharacterByCode(codeRaw)
+    if (character !== null) {
+      characterId = character.id
+    } else if (import.meta.env.DEV) {
+      // 未知 code: 運用ミス (機体削除 / code 改名) の早期検出のため DEV 環境で warn。
+      // ユーザーには見せず characterId=null に fallback (Issue #55 採用方針)
+      console.warn(`[urlCodec] unknown characterCode: ${codeRaw}`)
+    }
+  }
+
+  return { id, ...fixed, characterId }
+}
+
+/**
+ * v2 セクション分割パーサー。
+ *
+ * - 入力: `<key>=<value>;<key>=<value>;...`
+ * - 戻り値: Map<key, value>。**重複 key は reject (null)**
+ * - 空 payload や key=value 形式違反は reject
+ *
+ * 値そのものに `=` が含まれる可能性は v2 時点で存在しないが、最初の `=` で
+ * key/value を分割する (将来の拡張で base64 等が値になっても壊れない)。
+ */
+function parseV2Sections(payload: string): Map<string, string> | null {
+  if (payload === '') return null
+  const sections = payload.split(';')
+  const map = new Map<string, string>()
+  for (const section of sections) {
+    // 末尾セミコロン (`u=...;`) や連続セミコロン (`u=...;;tc=...`) で生じる空 section は
+    // forward compat のため lenient に skip する (Codex/Gemini レビュー[共通] 反映)。
+    // 仕様コメントは「`<key>=<value>;<key>=<value>...`」だが、手打ち URL や別実装が
+    // 末尾 `;` を付けるケースまで全体 reject すると互換性を不必要に壊す。
+    if (section === '') continue
+    const eq = section.indexOf('=')
+    if (eq === -1) return null // key=value 形式違反
+    const key = section.slice(0, eq)
+    const value = section.slice(eq + 1)
+    if (key === '') return null
+    if (map.has(key)) return null // 重複 key は reject
+    map.set(key, value)
+  }
+  return map
+}
+
+export function decodeV2(payload: string): BoardState | null {
+  const sections = parseV2Sections(payload)
+  if (sections === null) return null
+
+  // 必須セクション: u=
+  const unitsRaw = sections.get('u')
+  if (unitsRaw === undefined) return null
+
+  const unitChunks = unitsRaw.split('|')
+  if (unitChunks.length !== UNIT_ORDER.length) return null
+
+  const units: Partial<Record<UnitId, Unit>> = {}
+  for (let i = 0; i < UNIT_ORDER.length; i++) {
+    const id = UNIT_ORDER[i]
+    const unit = decodeV2Unit(unitChunks[i].split(','), id)
+    if (unit === null) return null
+    units[id] = unit
+  }
+
+  // 未知 prefix セクションは sections.get で参照しないので自然に ignore される
+  return { units: units as Record<UnitId, Unit> }
+}
+
+// ---- top-level encode / decode ----
+
+export function encode(state: BoardState): string {
+  return `${SCHEMA_VERSION}.${encodeBase64Url(encodeV2(state))}`
+}
+
 export function decode(s: string): BoardState | null {
-  // version-dispatch: 「v1.」で始まる場合のみ v1 decoder に渡す
-  // 将来 v2 が来たら if 分岐を追加する
+  // version-dispatch: prefix を見て v1 / v2 のどちらかへ
   const dot = s.indexOf('.')
   if (dot === -1) return null
   const version = s.slice(0, dot)
   const b64 = s.slice(dot + 1)
 
-  if (version === SCHEMA_VERSION) {
-    const payload = decodeBase64Url(b64)
-    if (payload === null) return null
-    return decodeV1(payload)
-  }
+  const payload = decodeBase64Url(b64)
+  if (payload === null) return null
 
+  if (version === 'v1') return decodeV1(payload)
+  if (version === 'v2') return decodeV2(payload)
   return null
 }
 

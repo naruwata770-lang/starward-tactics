@@ -73,6 +73,7 @@ import {
   UNIT_COLORS,
   UNIT_LABELS,
 } from '../../constants/game'
+import { findCharacterById } from '../../data/characters'
 import { useDrag } from '../../hooks/useDrag'
 import type { StarburstLevel, Unit } from '../../types/board'
 import { directionToVector } from './directionGeometry'
@@ -103,7 +104,10 @@ export interface UnitTokenProps {
 
 export const UnitToken = memo(function UnitToken({ unit }: UnitTokenProps) {
   const color = UNIT_COLORS[unit.id]
-  const label = UNIT_LABELS[unit.id]
+  // ラベル本体: characterId 選択中は機体 shortName、未選択時は従来の {ユニット名} (Issue #55)。
+  // findCharacterById は未知 id でも null 返しなので fallback 安全。
+  const character = findCharacterById(unit.characterId)
+  const label = character?.shortName ?? UNIT_LABELS[unit.id]
   // CORE_TYPE_BY_ID は constants/game.ts で satisfies により全キー網羅が型で保証されている
   const coreColor = CORE_TYPE_BY_ID[unit.coreType].color
   const sbCount = sbFillCount(unit.starburst)
@@ -150,8 +154,15 @@ export const UnitToken = memo(function UnitToken({ unit }: UnitTokenProps) {
       onLostPointerCapture={dragHandlers.onLostPointerCapture}
       style={{ touchAction: 'none', cursor: 'grab' }}
     >
-      {/* SVG 単独で開いたときやスクリーンリーダーでユニットを識別できるように */}
-      <title>{label}</title>
+      {/*
+        SVG 単独で開いたときやスクリーンリーダーでユニットを識別できるように。
+        機体選択時は「{ユニット名}: {機体フルネーム}」として両方の文脈を伝える。
+      */}
+      <title>
+        {character !== null
+          ? `${UNIT_LABELS[unit.id]}: ${character.name}`
+          : UNIT_LABELS[unit.id]}
+      </title>
 
       {/* 本体: 円 */}
       <circle
