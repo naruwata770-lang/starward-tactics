@@ -292,6 +292,7 @@ describe('boardReducer', () => {
           ...INITIAL_BOARD_STATE.units,
           self: { ...INITIAL_BOARD_STATE.units.self, x: 999, y: 888 },
         },
+        teamRemainingCost: INITIAL_BOARD_STATE.teamRemainingCost,
       }
       const next = boardReducer(INITIAL_BOARD_STATE, {
         type: 'LOAD_STATE',
@@ -312,6 +313,105 @@ describe('boardReducer', () => {
       const next = boardReducer(moved, { type: 'RESET' })
       expect(next).toBe(INITIAL_BOARD_STATE)
     })
+
+    it('Issue #60: resets teamRemainingCost to initial (6, 6)', () => {
+      const changed = boardReducer(INITIAL_BOARD_STATE, {
+        type: 'SET_TEAM_REMAINING_COST',
+        team: 'ally',
+        value: 2,
+      })
+      const next = boardReducer(changed, { type: 'RESET' })
+      expect(next.teamRemainingCost).toEqual({ ally: 6, enemy: 6 })
+    })
   })
 
+  // Issue #60
+  describe('SET_TEAM_REMAINING_COST', () => {
+    it('updates ally value in 0.5 step', () => {
+      const next = boardReducer(INITIAL_BOARD_STATE, {
+        type: 'SET_TEAM_REMAINING_COST',
+        team: 'ally',
+        value: 4.5,
+      })
+      expect(next.teamRemainingCost.ally).toBe(4.5)
+      expect(next.teamRemainingCost.enemy).toBe(6)
+    })
+
+    it('clamps values above the max', () => {
+      const next = boardReducer(INITIAL_BOARD_STATE, {
+        type: 'SET_TEAM_REMAINING_COST',
+        team: 'enemy',
+        value: 9.5,
+      })
+      expect(next.teamRemainingCost.enemy).toBe(6)
+    })
+
+    it('clamps values below the min', () => {
+      const next = boardReducer(INITIAL_BOARD_STATE, {
+        type: 'SET_TEAM_REMAINING_COST',
+        team: 'ally',
+        value: -3,
+      })
+      expect(next.teamRemainingCost.ally).toBe(0)
+    })
+
+    it('snaps non-0.5 step values (e.g. 3.3 → 3.5)', () => {
+      const next = boardReducer(INITIAL_BOARD_STATE, {
+        type: 'SET_TEAM_REMAINING_COST',
+        team: 'ally',
+        value: 3.3,
+      })
+      expect(next.teamRemainingCost.ally).toBe(3.5)
+    })
+
+    it('is a no-op for NaN (state reference preserved)', () => {
+      const next = boardReducer(INITIAL_BOARD_STATE, {
+        type: 'SET_TEAM_REMAINING_COST',
+        team: 'ally',
+        value: Number.NaN,
+      })
+      expect(next).toBe(INITIAL_BOARD_STATE)
+    })
+
+    it('is a no-op when the snapped value equals the current value', () => {
+      const next = boardReducer(INITIAL_BOARD_STATE, {
+        type: 'SET_TEAM_REMAINING_COST',
+        team: 'ally',
+        value: 6,
+      })
+      expect(next).toBe(INITIAL_BOARD_STATE)
+    })
+  })
+
+  // Issue #60: updateUnit が top-level を保つ refactor の不変条件テスト
+  describe('top-level field preservation across unit updates', () => {
+    it('preserves teamRemainingCost across MOVE_UNIT', () => {
+      const withCost = boardReducer(INITIAL_BOARD_STATE, {
+        type: 'SET_TEAM_REMAINING_COST',
+        team: 'ally',
+        value: 2.5,
+      })
+      const moved = boardReducer(withCost, {
+        type: 'MOVE_UNIT',
+        unitId: 'self',
+        x: 400,
+        y: 400,
+      })
+      expect(moved.teamRemainingCost).toEqual({ ally: 2.5, enemy: 6 })
+    })
+
+    it('preserves teamRemainingCost across SET_COST', () => {
+      const withCost = boardReducer(INITIAL_BOARD_STATE, {
+        type: 'SET_TEAM_REMAINING_COST',
+        team: 'enemy',
+        value: 1,
+      })
+      const costed = boardReducer(withCost, {
+        type: 'SET_COST',
+        unitId: 'self',
+        cost: 2,
+      })
+      expect(costed.teamRemainingCost).toEqual({ ally: 6, enemy: 1 })
+    })
+  })
 })

@@ -275,3 +275,17 @@ export const EXPORT_SCALE = 2
 
 /** Board.tsx の <svg> に付与する id。exportPng.ts の querySelector で参照する */
 export const BOARD_SVG_ID = 'tactics-board-svg'
+
+// ---- Issue #60: チーム残コストバー ----
+
+/**
+ * TeamCostBar SVG の viewBox 幅。盤面 SVG と同じ幅にしておくと PNG 合成で
+ * 水平位置を揃えやすい (canvas 合成時に幅揃えのリサンプルを避けられる)。
+ */
+export const TEAM_COST_BAR_VIEW_BOX_WIDTH = VIEW_BOX_SIZE
+
+/** TeamCostBar SVG の viewBox 高さ。PNG 合成時は EXPORT_SCALE 倍で出力する。 */
+export const TEAM_COST_BAR_VIEW_BOX_HEIGHT = 72
+
+/** TeamCostBar.tsx の <svg> に付与する id。exportPng.ts の querySelector で参照する。 */
+export const TEAM_COST_BAR_SVG_ID = 'team-cost-bar-svg'

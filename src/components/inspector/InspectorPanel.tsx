@@ -18,6 +18,7 @@ import { CoreTypeSelector } from './CoreTypeSelector'
 import { CostSelector } from './CostSelector'
 import { LockTargetSelector } from './LockTargetSelector'
 import { StarburstGauge } from './StarburstGauge'
+import { TeamRemainingCostEditor } from './TeamRemainingCostEditor'
 import { UnitSelector } from './UnitSelector'
 
 interface SectionProps {
@@ -43,6 +44,10 @@ export function InspectorPanel() {
 
   return (
     <div className="space-y-5">
+      <Section title="残コスト">
+        <TeamRemainingCostEditor />
+      </Section>
+
       <Section title="編集中">
         <UnitSelector />
       </Section>

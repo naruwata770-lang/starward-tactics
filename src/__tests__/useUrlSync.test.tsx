@@ -127,6 +127,7 @@ describe('useUrlSync', () => {
             characterId: null,
           },
         },
+        teamRemainingCost: { ally: 6, enemy: 6 },
       }))
       if (seed === null) throw new Error('test setup: failed to round-trip')
       return seed
@@ -204,6 +205,7 @@ describe('useUrlSync', () => {
             characterId: null,
         },
       },
+      teamRemainingCost: { ally: 6, enemy: 6 },
     }
     const popParam = encode(popState)
     setUrlParam(popParam)

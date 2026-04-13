@@ -56,6 +56,7 @@ function makeStateWithDirection(direction: Direction): BoardState {
       enemy1: baseUnit('enemy1', 260, 260),
       enemy2: baseUnit('enemy2', 460, 260),
     },
+    teamRemainingCost: { ally: 6, enemy: 6 },
   }
 }
 
@@ -154,6 +155,7 @@ describe('UnitToken: direction arrow', () => {
     const target = CHARACTERS[0]
     const state = makeStateWithDirection(0)
     const withChar: BoardState = {
+      ...state,
       units: {
         ...state.units,
         self: {
@@ -181,6 +183,7 @@ describe('UnitToken: direction arrow', () => {
     const target = CHARACTERS[0]
     const state = makeStateWithDirection(0)
     const withChar: BoardState = {
+      ...state,
       units: {
         ...state.units,
         self: {

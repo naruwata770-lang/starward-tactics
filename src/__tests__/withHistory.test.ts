@@ -238,6 +238,7 @@ describe('withHistory', () => {
   describe('LOAD_STATE / RESET', () => {
     it('LOAD_STATE clears history entirely', () => {
       const newPresent: BoardState = {
+        ...INITIAL_BOARD_STATE,
         units: {
           ...INITIAL_BOARD_STATE.units,
           self: { ...INITIAL_BOARD_STATE.units.self, x: 1 },

@@ -141,11 +141,24 @@ function makeDefaultUnit(id: UnitId): Unit {
   }
 }
 
+/**
+ * チーム残コストの初期値・範囲・刻み (Issue #60)。
+ *
+ * EXVS2 系は最大コスト 6 から開始し、撃墜で減っていく。0.5 刻みで手動入力する。
+ */
+export const TEAM_REMAINING_COST_MAX = 6
+export const TEAM_REMAINING_COST_MIN = 0
+export const TEAM_REMAINING_COST_STEP = 0.5
+
 export const INITIAL_BOARD_STATE: BoardState = {
   units: {
     self: makeDefaultUnit('self'),
     ally: makeDefaultUnit('ally'),
     enemy1: makeDefaultUnit('enemy1'),
     enemy2: makeDefaultUnit('enemy2'),
+  },
+  teamRemainingCost: {
+    ally: TEAM_REMAINING_COST_MAX,
+    enemy: TEAM_REMAINING_COST_MAX,
   },
 }

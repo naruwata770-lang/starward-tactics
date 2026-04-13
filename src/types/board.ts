@@ -42,8 +42,23 @@ export interface Unit {
   characterId: string | null
 }
 
+/**
+ * チームの残コスト (Issue #60)。
+ *
+ * EXVS2 系のチーム最大コスト 6 から、撃墜ごとに該当機体のコストを失う。
+ * 盤面ユニットの `cost` からは一意に導けない (同一 cost 機が 2 回落ちるケース)
+ * ため、手動入力で保持する戦況メタ情報。0..6、0.5 刻み。
+ */
+export interface TeamRemainingCost {
+  ally: number
+  enemy: number
+}
+
+export type TeamSide = keyof TeamRemainingCost
+
 export interface BoardState {
   units: Record<UnitId, Unit>
+  teamRemainingCost: TeamRemainingCost
 }
 
 /**
@@ -63,6 +78,7 @@ export type BoardAction =
   | { type: 'SET_CORE_TYPE'; unitId: UnitId; coreType: CoreType }
   | { type: 'SET_LOCK_TARGET'; unitId: UnitId; target: UnitId | null }
   | { type: 'SET_CHARACTER'; unitId: UnitId; characterId: string | null }
+  | { type: 'SET_TEAM_REMAINING_COST'; team: TeamSide; value: number }
   | { type: 'LOAD_STATE'; state: BoardState }
   | { type: 'RESET' }
   | { type: 'UNDO' }
