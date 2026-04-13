@@ -5,7 +5,7 @@
  * Issue #55 で v2 (セクション分割 + characterCode trailing optional) を導入。
  */
 
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   UNIT_COORD_X_MAX,
@@ -785,6 +785,62 @@ describe('urlCodec', () => {
       // INITIAL_BOARD_STATE は characterId=null && hp=null && boost=100 で正規形
       const same = normalizeBoardState(INITIAL_BOARD_STATE)
       expect(same).toBe(INITIAL_BOARD_STATE)
+    })
+  })
+
+  describe('Issue #65: unknown characterCode warn dedup (DEV 環境)', () => {
+    // DEV 環境限定の挙動 (vitest 実行時は import.meta.env.DEV === true)。
+    // spy はこの describe に閉じ込め、既存テストの console.warn 出力には干渉しない
+    // (Codex/Gemini セカンドオピニオン [共通] 反映: 新規 describe に限定、全体 spy は避ける)。
+    let warnSpy: ReturnType<typeof vi.spyOn>
+
+    beforeEach(() => {
+      warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    })
+    afterEach(() => {
+      warnSpy.mockRestore()
+    })
+
+    const fixed = '260,460,0,d,n,B,_'
+
+    it('同じ未知 code が 4 ユニット全てに入った v2 URL の warn は 1 回に集約される', () => {
+      // 同じ未知 code "ZZ" を 4 unit に入れる。Issue #65 前の挙動では 4 回 warn。
+      const payload = `u=${fixed},ZZ|${fixed},ZZ|${fixed},ZZ|${fixed},ZZ`
+      const state = decodeV2(payload)
+      expect(state).not.toBeNull()
+      expect(warnSpy).toHaveBeenCalledTimes(1)
+      expect(warnSpy).toHaveBeenCalledWith(
+        '[urlCodec] unknown characterCode: ZZ',
+      )
+    })
+
+    it('異なる未知 code は code ごとに 1 回ずつ warn される', () => {
+      // self/ally が "ZZ"、enemy1/enemy2 が "YY"。合計 2 回の warn を期待
+      const payload = `u=${fixed},ZZ|${fixed},ZZ|${fixed},YY|${fixed},YY`
+      const state = decodeV2(payload)
+      expect(state).not.toBeNull()
+      expect(warnSpy).toHaveBeenCalledTimes(2)
+      expect(warnSpy).toHaveBeenCalledWith(
+        '[urlCodec] unknown characterCode: ZZ',
+      )
+      expect(warnSpy).toHaveBeenCalledWith(
+        '[urlCodec] unknown characterCode: YY',
+      )
+    })
+
+    it('1 ユニットだけ未知 code の既存ケースは従来どおり 1 回 warn (regression 防止)', () => {
+      const payload = `u=${fixed},ZZ|${fixed},|${fixed},|${fixed},`
+      const state = decodeV2(payload)
+      expect(state).not.toBeNull()
+      expect(warnSpy).toHaveBeenCalledTimes(1)
+    })
+
+    it('同じ URL を連続 2 回 decode すると warn は 2 回出る (呼び出し境界でリセット)', () => {
+      // 別 URL に切り替えたときの運用ミスを見逃さないため、Set は decode 呼び出し間で持ち越さない
+      const payload = `u=${fixed},ZZ|${fixed},ZZ|${fixed},ZZ|${fixed},ZZ`
+      decodeV2(payload)
+      decodeV2(payload)
+      expect(warnSpy).toHaveBeenCalledTimes(2)
     })
   })
 })
