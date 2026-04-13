@@ -127,7 +127,7 @@ export const CharacterSelector = memo(function CharacterSelector({
       </button>
 
       <div
-        role="list"
+        role="group"
         aria-label="機体リスト"
         className="max-h-72 space-y-3 overflow-y-auto pr-1"
       >

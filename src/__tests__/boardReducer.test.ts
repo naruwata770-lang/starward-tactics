@@ -8,6 +8,7 @@ import {
   UNIT_LABEL_GAP,
   UNIT_LABEL_HEIGHT,
   UNIT_LABEL_STROKE_WIDTH,
+  UNIT_LABEL_WIDTH,
   UNIT_RADIUS,
   UNIT_STROKE_WIDTH,
   VIEW_BOX_SIZE,
@@ -92,25 +93,26 @@ describe('boardReducer', () => {
       // 描画したとき、stroke を含めた視覚 bbox が [0, VIEW_BOX_SIZE] に収まること
       // を計算で検証する。constants/board.ts の式を変更したらここで気づける。
       //
-      // 検証の対象: 現行の描画で viewBox 端を支配する 4 辺のみ。
-      // - x 方向: 円の半径 (30) + stroke 半幅 (1) = 31 が、ラベル幅の半分
-      //   (UNIT_LABEL_WIDTH / 2 + UNIT_LABEL_STROKE_WIDTH / 2 = 28.5) より大きい
-      //   ため、x の左右は円が支配する。よってラベル左右の assertion は省略。
-      // - y 方向: 上は円が、下はラベルが支配する。
-      //
-      // 将来 UNIT_LABEL_WIDTH を UNIT_RADIUS * 2 + UNIT_STROKE_WIDTH より大きく
-      // 変更するとラベル左右が viewBox 端を支配するようになるので、その時は
-      // 下記に「ラベル左端 / 右端」の assertion を追加し、UNIT_COORD_X_MIN/MAX
-      // の式もラベル幅を加味するよう更新すること。
+      // Issue #55 で UNIT_LABEL_WIDTH を 56 → 64 に拡張した結果、ラベル幅の半分
+      // (32 + 0.5 = 32.5) が円半径 (30 + 1 = 31) を超え、x 方向はラベルが支配する。
+      // よってここでは「円端」と「ラベル端」の両方を assert する。
       const strokeHalf = UNIT_STROKE_WIDTH / 2
       const labelStrokeHalf = UNIT_LABEL_STROKE_WIDTH / 2
+      const labelHalf = UNIT_LABEL_WIDTH / 2
 
-      // 円の左端 (x_min での)
+      // 円の左右端
       expect(UNIT_COORD_X_MIN - UNIT_RADIUS - strokeHalf).toBeGreaterThanOrEqual(0)
-      // 円の右端 (x_max での)
       expect(UNIT_COORD_X_MAX + UNIT_RADIUS + strokeHalf).toBeLessThanOrEqual(
         VIEW_BOX_SIZE,
       )
+      // ラベルの左右端 (Issue #55 で支配側になった)
+      expect(UNIT_COORD_X_MIN - labelHalf - labelStrokeHalf).toBeGreaterThanOrEqual(
+        0,
+      )
+      expect(UNIT_COORD_X_MAX + labelHalf + labelStrokeHalf).toBeLessThanOrEqual(
+        VIEW_BOX_SIZE,
+      )
+
       // 円の上端 (y_min での)
       expect(UNIT_COORD_Y_MIN - UNIT_RADIUS - strokeHalf).toBeGreaterThanOrEqual(0)
       // ラベルの下端 (y_max での)

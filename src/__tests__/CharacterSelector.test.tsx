@@ -95,12 +95,20 @@ describe('CharacterSelector', () => {
     const user = userEvent.setup()
     renderSelector()
 
-    // CHARACTERS の中で searchTokens に "amuro" を持つ機体は複数あるはずなので、
-    // 検索キーを 1 つに絞れる token を使う
-    const target = CHARACTERS.find((c) => c.searchTokens.includes('zechs'))
-    if (!target) return // データ変更で消えても黙ってスキップ
+    // 検索 token から逆引きできる、かつ 1 機種に絞れる token を使う。
+    // データ変更で消えるリスクを避けるため動的に「name に含まれない token を持つキャラ」を
+    // 探し、その token で検索すれば「searchTokens 経由でしかヒットしない」を担保できる。
+    const target = CHARACTERS.find((c) =>
+      c.searchTokens.some(
+        (token) => !c.name.toLowerCase().includes(token.toLowerCase()),
+      ),
+    )
+    if (!target) return // データが揃って searchTokens 不要になったらスキップ
+    const aliasToken = target.searchTokens.find(
+      (token) => !target.name.toLowerCase().includes(token.toLowerCase()),
+    )!
     const input = screen.getByRole('searchbox', { name: /機体検索/ })
-    await user.type(input, 'zechs')
+    await user.type(input, aliasToken)
     expect(
       screen.getByRole('button', { name: new RegExp(target.name) }),
     ).toBeTruthy()
@@ -122,12 +130,13 @@ describe('CharacterSelector', () => {
     expect(button.getAttribute('aria-pressed')).toBe('true')
   })
 
-  it('within list region: current button is marked', () => {
-    // セクション内の特定機体ボタンを within で取れることの確認
+  it('within group region: current button is marked', () => {
+    // セクション内の特定機体ボタンを within で取れることの確認。
+    // 既存セレクタ (CostSelector / CoreTypeSelector) と同じく `role="group"` 流儀。
     const target = CHARACTERS[0]
     renderSelector(target.id)
-    const list = screen.getByRole('list', { name: /機体リスト/ })
-    const button = within(list).getByRole('button', {
+    const group = screen.getByRole('group', { name: /機体リスト/ })
+    const button = within(group).getByRole('button', {
       name: new RegExp(target.name),
     })
     expect(button.getAttribute('aria-pressed')).toBe('true')
