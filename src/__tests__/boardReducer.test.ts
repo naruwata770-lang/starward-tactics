@@ -13,6 +13,7 @@ import {
   VIEW_BOX_SIZE,
 } from '../constants/board'
 import { INITIAL_BOARD_STATE } from '../constants/game'
+import { CHARACTERS } from '../data/characters'
 import { boardReducer } from '../state/boardReducer'
 import type { BoardState } from '../types/board'
 
@@ -135,13 +136,71 @@ describe('boardReducer', () => {
   })
 
   describe('SET_COST', () => {
-    it('updates cost', () => {
+    it('updates cost when characterId is null', () => {
       const next = boardReducer(INITIAL_BOARD_STATE, {
         type: 'SET_COST',
         unitId: 'self',
         cost: 2.5,
       })
       expect(next.units.self.cost).toBe(2.5)
+    })
+
+    it('Issue #55: ignores SET_COST when characterId is set (SSOT guard)', () => {
+      // characterId 選択中は cost が機体固有値に固定される
+      const withChar = boardReducer(INITIAL_BOARD_STATE, {
+        type: 'SET_CHARACTER',
+        unitId: 'self',
+        characterId: CHARACTERS[0].id,
+      })
+      const fixedCost = withChar.units.self.cost
+      const next = boardReducer(withChar, {
+        type: 'SET_COST',
+        unitId: 'self',
+        cost: 1.5,
+      })
+      expect(next.units.self.cost).toBe(fixedCost)
+      // state 参照が変わらないこと (no-op であることの保証)
+      expect(next).toBe(withChar)
+    })
+  })
+
+  describe('SET_CHARACTER', () => {
+    it('sets characterId and auto-syncs cost to character cost', () => {
+      const target = CHARACTERS.find((c) => c.cost !== INITIAL_BOARD_STATE.units.self.cost)!
+      const next = boardReducer(INITIAL_BOARD_STATE, {
+        type: 'SET_CHARACTER',
+        unitId: 'self',
+        characterId: target.id,
+      })
+      expect(next.units.self.characterId).toBe(target.id)
+      expect(next.units.self.cost).toBe(target.cost)
+    })
+
+    it('clearing characterId (null) keeps last cost (no rollback to default)', () => {
+      // 機体選択 → 解除 → cost は機体固有値のまま (UX 罠の認識下で許容)
+      const target = CHARACTERS.find((c) => c.cost === 2.5)!
+      const withChar = boardReducer(INITIAL_BOARD_STATE, {
+        type: 'SET_CHARACTER',
+        unitId: 'self',
+        characterId: target.id,
+      })
+      expect(withChar.units.self.cost).toBe(2.5)
+      const cleared = boardReducer(withChar, {
+        type: 'SET_CHARACTER',
+        unitId: 'self',
+        characterId: null,
+      })
+      expect(cleared.units.self.characterId).toBeNull()
+      expect(cleared.units.self.cost).toBe(2.5)
+    })
+
+    it('unknown characterId (lookup miss) falls back to characterId=null', () => {
+      const next = boardReducer(INITIAL_BOARD_STATE, {
+        type: 'SET_CHARACTER',
+        unitId: 'self',
+        characterId: 'totally-unknown-id',
+      })
+      expect(next.units.self.characterId).toBeNull()
     })
   })
 

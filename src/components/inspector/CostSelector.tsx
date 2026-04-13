@@ -20,16 +20,27 @@ import type { Cost, UnitId } from '../../types/board'
 export interface CostSelectorProps {
   unitId: UnitId
   current: Cost
+  /**
+   * Issue #55: characterId 選択中は cost が機体固有値に固定されるため UI を読み取り専用化。
+   * Reducer (`SET_COST`) 側でも characterId 非 null ガードで防御済み (SSOT)。
+   */
+  disabled?: boolean
 }
 
 export const CostSelector = memo(function CostSelector({
   unitId,
   current,
+  disabled = false,
 }: CostSelectorProps) {
   const dispatch = useBoardDispatch()
 
   return (
-    <div role="group" aria-label="コスト" className="flex gap-2">
+    <div
+      role="group"
+      aria-label="コスト"
+      aria-disabled={disabled || undefined}
+      className={`flex gap-2 ${disabled ? 'opacity-50' : ''}`}
+    >
       {COSTS.map((cost) => {
         const isSelected = current === cost
         return (
@@ -37,11 +48,16 @@ export const CostSelector = memo(function CostSelector({
             key={cost}
             type="button"
             aria-pressed={isSelected}
+            disabled={disabled}
             onClick={() => dispatch({ type: 'SET_COST', unitId, cost })}
-            className={`flex-1 cursor-pointer rounded-md px-2 py-2 text-sm font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-400 focus-visible:outline-offset-2 ${
+            className={`flex-1 rounded-md px-2 py-2 text-sm font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-400 focus-visible:outline-offset-2 ${
               isSelected
                 ? 'bg-slate-200 text-slate-900'
                 : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+            } ${
+              disabled
+                ? 'cursor-not-allowed hover:bg-slate-800'
+                : 'cursor-pointer'
             }`}
           >
             {cost}

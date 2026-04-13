@@ -136,6 +136,8 @@ function makeDefaultUnit(id: UnitId): Unit {
     starburst: 'none',
     coreType: 'B',
     lockTarget: null,
+    // 初期は機体未選択。InspectorPanel で選ぶと cost が自動同期される (Issue #55)
+    characterId: null,
   }
 }
 

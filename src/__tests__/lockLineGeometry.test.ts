@@ -28,6 +28,7 @@ function makeUnit(overrides: Partial<Unit> & Pick<Unit, 'id' | 'x' | 'y'>): Unit
     starburst: 'none',
     coreType: 'B',
     lockTarget: null,
+    characterId: null,
     ...overrides,
   }
 }

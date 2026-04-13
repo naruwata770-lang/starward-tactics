@@ -28,8 +28,13 @@ export const UNIT_STROKE_WIDTH = 2
 /** 名前ラベル (ピル) の枠線の幅 */
 export const UNIT_LABEL_STROKE_WIDTH = 1
 
-/** 名前ラベル (ピル) の幅 */
-export const UNIT_LABEL_WIDTH = 56
+/**
+ * 名前ラベル (ピル) の幅。
+ *
+ * Issue #55 で 56 → 64 に拡張: shortName (4-5 文字) 表示に備える。
+ * 4 文字全角 + コア略称 1 文字までは 64 で安全に収まる。
+ */
+export const UNIT_LABEL_WIDTH = 64
 
 /** 名前ラベル (ピル) の高さ */
 export const UNIT_LABEL_HEIGHT = 18

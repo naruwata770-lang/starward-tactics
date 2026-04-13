@@ -24,6 +24,7 @@ import {
   UNIT_RADIUS,
   UNIT_STROKE_WIDTH,
 } from '../constants/board'
+import { CHARACTERS } from '../data/characters'
 import { BoardProvider } from '../state/BoardProvider'
 import type { BoardState, Direction, Unit } from '../types/board'
 
@@ -46,6 +47,7 @@ function makeStateWithDirection(direction: Direction): BoardState {
     starburst: 'none',
     coreType: 'B',
     lockTarget: null,
+    characterId: null,
   })
   return {
     units: {
@@ -147,6 +149,71 @@ describe('UnitToken: direction arrow', () => {
       }
     },
   )
+
+  it('Issue #55: shows shortName when characterId is set, otherwise UNIT_LABELS', () => {
+    const target = CHARACTERS[0]
+    const state = makeStateWithDirection(0)
+    const withChar: BoardState = {
+      units: {
+        ...state.units,
+        self: {
+          ...state.units.self,
+          characterId: target.id,
+          cost: target.cost,
+        },
+      },
+    }
+
+    const { container } = render(
+      <BoardProvider initialState={withChar}>
+        <svg viewBox="0 0 720 720">
+          <UnitToken unit={withChar.units.self} />
+        </svg>
+      </BoardProvider>,
+    )
+    // ピル内のラベル本体は <tspan>{shortName}</tspan>
+    const tspans = container.querySelectorAll('tspan')
+    const labels = Array.from(tspans).map((t) => t.textContent ?? '')
+    expect(labels).toContain(target.shortName)
+  })
+
+  it('Issue #55: title shows {unit-name}: {character-name} when characterId is set', () => {
+    const target = CHARACTERS[0]
+    const state = makeStateWithDirection(0)
+    const withChar: BoardState = {
+      units: {
+        ...state.units,
+        self: {
+          ...state.units.self,
+          characterId: target.id,
+          cost: target.cost,
+        },
+      },
+    }
+    const { container } = render(
+      <BoardProvider initialState={withChar}>
+        <svg viewBox="0 0 720 720">
+          <UnitToken unit={withChar.units.self} />
+        </svg>
+      </BoardProvider>,
+    )
+    const title = container.querySelector('title')?.textContent ?? ''
+    expect(title).toContain(target.name)
+    expect(title).toContain('自機')
+  })
+
+  it('Issue #55: title is the unit label only when characterId is null', () => {
+    const state = makeStateWithDirection(0)
+    const { container } = render(
+      <BoardProvider initialState={state}>
+        <svg viewBox="0 0 720 720">
+          <UnitToken unit={state.units.self} />
+        </svg>
+      </BoardProvider>,
+    )
+    const title = container.querySelector('title')?.textContent?.trim() ?? ''
+    expect(title).toBe('自機')
+  })
 
   it('the line endpoint distance from center stays within (safeRadius - arrow head length)', () => {
     // 線の終点 (= 三角形の付け根) は UNIT_DIRECTION_LINE_OUTER の距離にあるはず。

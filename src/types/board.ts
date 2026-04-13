@@ -34,6 +34,12 @@ export interface Unit {
   starburst: StarburstLevel
   coreType: CoreType
   lockTarget: UnitId | null
+  /**
+   * 機体識別子 (`src/data/characters.ts` の `Character.id`)。
+   * `null` のときは「未選択」状態 (cost を手動で編集できる従来の挙動)。
+   * Issue #55 (URL v2) で導入。
+   */
+  characterId: string | null
 }
 
 export interface BoardState {
@@ -56,6 +62,7 @@ export type BoardAction =
   | { type: 'SET_STARBURST'; unitId: UnitId; level: StarburstLevel }
   | { type: 'SET_CORE_TYPE'; unitId: UnitId; coreType: CoreType }
   | { type: 'SET_LOCK_TARGET'; unitId: UnitId; target: UnitId | null }
+  | { type: 'SET_CHARACTER'; unitId: UnitId; characterId: string | null }
   | { type: 'LOAD_STATE'; state: BoardState }
   | { type: 'RESET' }
   | { type: 'UNDO' }
