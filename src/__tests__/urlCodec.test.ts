@@ -359,6 +359,21 @@ describe('urlCodec', () => {
       expect(state).not.toBeNull()
     })
 
+    it('decodeV2 accepts trailing semicolon (lenient skip of empty sections)', () => {
+      // Codex/Gemini レビュー[共通] 反映: 末尾 `;` や連続 `;;` は forward compat で skip
+      const fixed = '260,460,0,d,n,B,_'
+      const payload = `u=${fixed},|${fixed},|${fixed},|${fixed},;`
+      const state = decodeV2(payload)
+      expect(state).not.toBeNull()
+    })
+
+    it('decodeV2 accepts consecutive semicolons between sections', () => {
+      const fixed = '260,460,0,d,n,B,_'
+      const payload = `u=${fixed},|${fixed},|${fixed},|${fixed},;;tc=6,6`
+      const state = decodeV2(payload)
+      expect(state).not.toBeNull()
+    })
+
     it('decodeV2 rejects when u= section is missing', () => {
       expect(decodeV2('tc=6,6')).toBeNull()
     })

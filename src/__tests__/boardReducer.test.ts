@@ -196,13 +196,36 @@ describe('boardReducer', () => {
       expect(cleared.units.self.cost).toBe(2.5)
     })
 
-    it('unknown characterId (lookup miss) falls back to characterId=null', () => {
+    it('unknown characterId from initial null state remains null', () => {
       const next = boardReducer(INITIAL_BOARD_STATE, {
         type: 'SET_CHARACTER',
         unitId: 'self',
         characterId: 'totally-unknown-id',
       })
       expect(next.units.self.characterId).toBeNull()
+      // state 参照が変わらないこと (no-op であることの保証)
+      expect(next).toBe(INITIAL_BOARD_STATE)
+    })
+
+    it('PR #63 [共通中]: unknown characterId does NOT silently clear a valid existing selection', () => {
+      // 既に有効な機体が選択されている状態で未知 id を投げても、選択は維持される
+      const target = CHARACTERS[0]
+      const withChar = boardReducer(INITIAL_BOARD_STATE, {
+        type: 'SET_CHARACTER',
+        unitId: 'self',
+        characterId: target.id,
+      })
+      expect(withChar.units.self.characterId).toBe(target.id)
+
+      const next = boardReducer(withChar, {
+        type: 'SET_CHARACTER',
+        unitId: 'self',
+        characterId: 'totally-unknown-id',
+      })
+      // characterId が target.id のまま (silent 解除されていない)
+      expect(next.units.self.characterId).toBe(target.id)
+      // state 参照が変わらないこと (no-op であることの保証)
+      expect(next).toBe(withChar)
     })
   })
 

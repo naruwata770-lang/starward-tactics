@@ -90,11 +90,12 @@ export function boardReducer(state: BoardState, action: BoardAction): BoardState
       // characterId が string なら lookup → cost を自動同期 (1 アクション = Undo 1 単位)
       // characterId が null なら cost は据え置き (UX 罠の認識: 機体解除後も機体固有 cost が残る。
       // Issue #55 セカンドオピニオン Codex 中 反映: コメントで明示)
-      // 未知 id (lookup miss) は characterId=null として扱い state を破壊しない
+      // 未知 id (lookup miss) は **no-op** で state を破壊しない (PR #63 [共通中] 反映)。
+      // 旧実装は characterId=null に書き戻していたため、既に有効な機体が
+      // 選択中だった unit が silent に解除される回帰があった。
       const character = findCharacterById(action.characterId)
       if (action.characterId !== null && character === null) {
-        // 未知 id: characterId をセットしない (silent fallback)
-        return updateUnit(state, action.unitId, { characterId: null })
+        return state
       }
       const patch: Partial<Unit> =
         character !== null

@@ -359,6 +359,11 @@ function parseV2Sections(payload: string): Map<string, string> | null {
   const sections = payload.split(';')
   const map = new Map<string, string>()
   for (const section of sections) {
+    // 末尾セミコロン (`u=...;`) や連続セミコロン (`u=...;;tc=...`) で生じる空 section は
+    // forward compat のため lenient に skip する (Codex/Gemini レビュー[共通] 反映)。
+    // 仕様コメントは「`<key>=<value>;<key>=<value>...`」だが、手打ち URL や別実装が
+    // 末尾 `;` を付けるケースまで全体 reject すると互換性を不必要に壊す。
+    if (section === '') continue
     const eq = section.indexOf('=')
     if (eq === -1) return null // key=value 形式違反
     const key = section.slice(0, eq)
