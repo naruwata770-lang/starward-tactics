@@ -15,14 +15,10 @@ import {
   TEAM_REMAINING_COST_MAX,
   TEAM_REMAINING_COST_MIN,
   TEAM_REMAINING_COST_STEP,
+  TEAM_SIDE_LABELS,
 } from '../../constants/game'
 import { useBoard, useBoardDispatch } from '../../state/BoardContext'
 import type { TeamSide } from '../../types/board'
-
-const TEAM_LABELS: Record<TeamSide, string> = {
-  ally: '味方',
-  enemy: '敵',
-}
 
 interface StepperProps {
   team: TeamSide
@@ -37,11 +33,11 @@ function TeamStepper({ team, value }: StepperProps) {
 
   return (
     <div className="flex items-center justify-between gap-2">
-      <span className="text-sm text-slate-300 w-12">{TEAM_LABELS[team]}</span>
+      <span className="text-sm text-slate-300 w-12">{TEAM_SIDE_LABELS[team]}</span>
       <div className="flex items-center gap-2">
         <button
           type="button"
-          aria-label={`${TEAM_LABELS[team]}残コストを ${TEAM_REMAINING_COST_STEP} 減らす`}
+          aria-label={`${TEAM_SIDE_LABELS[team]}残コストを ${TEAM_REMAINING_COST_STEP} 減らす`}
           disabled={!canDecrement}
           onClick={() =>
             dispatch({
@@ -62,7 +58,7 @@ function TeamStepper({ team, value }: StepperProps) {
         </span>
         <button
           type="button"
-          aria-label={`${TEAM_LABELS[team]}残コストを ${TEAM_REMAINING_COST_STEP} 増やす`}
+          aria-label={`${TEAM_SIDE_LABELS[team]}残コストを ${TEAM_REMAINING_COST_STEP} 増やす`}
           disabled={!canIncrement}
           onClick={() =>
             dispatch({

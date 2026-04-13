@@ -90,6 +90,11 @@ function svgToImage(
 /**
  * 盤面 SVG と TeamCostBar SVG を縦積みで PNG に合成してダウンロードする。
  * ブラウザ API (Canvas/Blob/Image) に依存するため、自動テストは手動検証で代替する。
+ *
+ * Issue #60 レビュー[共通高] 反映: Promise.all + 単一 try/finally だと
+ * 「片方 reject + もう片方 resolve」のときに成功側 Blob URL が finally に
+ * 到達せずリークする。Promise.allSettled で全件受け取り、成功した分だけ
+ * **必ず** revoke する。
  */
 export async function exportBoardAsPng(): Promise<void> {
   const boardSvg = document.querySelector<SVGSVGElement>(`#${BOARD_SVG_ID}`)
@@ -101,15 +106,22 @@ export async function exportBoardAsPng(): Promise<void> {
   const barHeight = TEAM_COST_BAR_VIEW_BOX_HEIGHT * EXPORT_SCALE
 
   // バー SVG が DOM にあるときだけ合成する (欠落しても盤面だけは PNG 化できる)
-  const barLoader = barSvg
-    ? svgToImage(barSvg, barWidth, barHeight)
-    : Promise.resolve(null)
-  const [board, bar] = await Promise.all([
+  const settled = await Promise.allSettled([
     svgToImage(boardSvg, boardSize, boardSize),
-    barLoader,
+    barSvg ? svgToImage(barSvg, barWidth, barHeight) : Promise.resolve(null),
   ])
+  const [boardResult, barResult] = settled
+  const board = boardResult.status === 'fulfilled' ? boardResult.value : null
+  const bar = barResult.status === 'fulfilled' ? barResult.value : null
 
   try {
+    if (!board) {
+      // 盤面が読めなければ PNG 出力できない
+      throw boardResult.status === 'rejected'
+        ? boardResult.reason
+        : new Error('board image unavailable')
+    }
+
     const canvasWidth = boardSize
     const canvasHeight = boardSize + (bar ? barHeight : 0)
     const canvas = document.createElement('canvas')
@@ -139,7 +151,7 @@ export async function exportBoardAsPng(): Promise<void> {
       setTimeout(() => URL.revokeObjectURL(pngUrl), 100)
     }
   } finally {
-    board.revoke()
+    board?.revoke()
     bar?.revoke()
   }
 }

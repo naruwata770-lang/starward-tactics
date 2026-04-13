@@ -21,23 +21,15 @@ import {
   TEAM_COST_BAR_VIEW_BOX_HEIGHT,
   TEAM_COST_BAR_VIEW_BOX_WIDTH,
 } from '../../constants/board'
-import { TEAM_REMAINING_COST_MAX } from '../../constants/game'
+import {
+  TEAM_BAR_TEXT_COLOR,
+  TEAM_BAR_TRACK_COLOR,
+  TEAM_COLORS,
+  TEAM_REMAINING_COST_MAX,
+  TEAM_SIDE_LABELS,
+} from '../../constants/game'
 import { useBoard } from '../../state/BoardContext'
 import type { TeamSide } from '../../types/board'
-
-/**
- * 1 チーム分のバー描画に使う色セット。
- * ally は board の self/ally と揃えて青系、enemy は赤系。
- */
-const BAR_COLORS: Record<TeamSide, { fill: string; track: string; label: string }> = {
-  ally: { fill: '#38bdf8', track: '#1e293b', label: '#e2e8f0' },
-  enemy: { fill: '#ef4444', track: '#1e293b', label: '#e2e8f0' },
-}
-
-const TEAM_LABELS: Record<TeamSide, string> = {
-  ally: '味方',
-  enemy: '敵',
-}
 
 /** 1 列あたりの x 座標設計: label → track/fill → value の横並び。 */
 const COLUMN_WIDTH = TEAM_COST_BAR_VIEW_BOX_WIDTH / 2
@@ -56,7 +48,7 @@ interface TeamRowProps {
 }
 
 function TeamRow({ side, value, columnX }: TeamRowProps) {
-  const colors = BAR_COLORS[side]
+  const fillColor = TEAM_COLORS[side]
   const clampedRatio = Math.max(
     0,
     Math.min(1, value / TEAM_REMAINING_COST_MAX),
@@ -68,7 +60,7 @@ function TeamRow({ side, value, columnX }: TeamRowProps) {
 
   return (
     <g
-      aria-label={`${TEAM_LABELS[side]}残コスト ${valueLabel}`}
+      aria-label={`${TEAM_SIDE_LABELS[side]}残コスト ${valueLabel}`}
       role="group"
     >
       <text
@@ -77,9 +69,9 @@ function TeamRow({ side, value, columnX }: TeamRowProps) {
         dominantBaseline="middle"
         fontSize={16}
         fontWeight={700}
-        fill={colors.label}
+        fill={TEAM_BAR_TEXT_COLOR}
       >
-        {TEAM_LABELS[side]}
+        {TEAM_SIDE_LABELS[side]}
       </text>
       <rect
         x={columnX + BAR_X_OFFSET}
@@ -88,7 +80,7 @@ function TeamRow({ side, value, columnX }: TeamRowProps) {
         height={BAR_HEIGHT}
         rx={4}
         ry={4}
-        fill={colors.track}
+        fill={TEAM_BAR_TRACK_COLOR}
       />
       {filledWidth > 0 && (
         <rect
@@ -98,7 +90,7 @@ function TeamRow({ side, value, columnX }: TeamRowProps) {
           height={BAR_HEIGHT}
           rx={4}
           ry={4}
-          fill={colors.fill}
+          fill={fillColor}
         />
       )}
       <text
@@ -107,7 +99,7 @@ function TeamRow({ side, value, columnX }: TeamRowProps) {
         dominantBaseline="middle"
         fontSize={14}
         fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
-        fill={colors.label}
+        fill={TEAM_BAR_TEXT_COLOR}
       >
         {valueLabel}
       </text>

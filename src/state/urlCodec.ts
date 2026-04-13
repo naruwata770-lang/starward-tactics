@@ -40,7 +40,11 @@
  *   - 8 番目 characterCode が空文字 / 不在 → characterId=null
  *   - 8 番目 characterCode が辞書未収録 → characterId=null + DEV warn
  *   - 9 番目以降のフィールド → ignore
- *   - 未知セクション → ignore
+ *   - 未知 prefix セクション (将来追加予定の `hp=` / `boost=` 等) → ignore
+ *
+ * v2 既知セクション (Issue #60 以降):
+ * - `u=`: units (必須・strict)
+ * - `tc=`: teamRemainingCost (optional・strict。欠落時は (MAX, MAX) フォールバック)
  *
  * ============================================================
  *  バージョニング戦略
@@ -415,6 +419,17 @@ function parseV2Sections(payload: string): Map<string, string> | null {
  * v2 の固定フィールドと同じ strict 方針: 存在するが壊れている URL は
  * サイレント切り詰めず、全体を reject して「壊れた URL は起動に失敗する」明示的挙動にする。
  */
+/**
+ * 文字列表現としても strict に判定する。`Number()` 単独だと
+ * `""` → 0、`"5e-1"` → 0.5、`"0x3"` → 3、`" 6 "` → 6 のように
+ * URL の round-trip 仕様外の表記を黙って受け入れてしまう。仕様は
+ * encode 側が `toString()` で出す `"0", "0.5", ..., "6"` の整数 / 0.5 刻みのみ。
+ *
+ * Codex レビュー[中] 反映: `tc=,` / `tc= , ` / `tc=5e-1,6` / `tc=0x3,0` が
+ * silent に通る回帰を防ぐため、許可形式を正規表現で先に絞る。
+ */
+const TEAM_COST_TOKEN_PATTERN = /^(?:0|[1-9]\d*)(?:\.\d+)?$/
+
 function decodeTeamRemainingCostSection(
   raw: string | undefined,
 ): TeamRemainingCost | 'reject' {
@@ -424,14 +439,17 @@ function decodeTeamRemainingCostSection(
   const parts = raw.split(',')
   if (parts.length !== 2) return 'reject'
   const [allyStr, enemyStr] = parts
+  if (!TEAM_COST_TOKEN_PATTERN.test(allyStr)) return 'reject'
+  if (!TEAM_COST_TOKEN_PATTERN.test(enemyStr)) return 'reject'
   const ally = Number(allyStr)
   const enemy = Number(enemyStr)
+  // 正規表現を通れば NaN / Infinity は出ないが防御として残す
   if (!Number.isFinite(ally) || !Number.isFinite(enemy)) return 'reject'
   for (const value of [ally, enemy]) {
     if (value < TEAM_REMAINING_COST_MIN || value > TEAM_REMAINING_COST_MAX) {
       return 'reject'
     }
-    // 0.5 刻み違反は reject (浮動小数誤差を避けるため 2 倍して整数判定)
+    // 0.5 刻み違反は reject (整数倍判定。STEP=0.5 で除算誤差は出ない)
     if (!Number.isInteger(value / TEAM_REMAINING_COST_STEP)) return 'reject'
   }
   return { ally, enemy }

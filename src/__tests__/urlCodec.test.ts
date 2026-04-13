@@ -507,6 +507,26 @@ describe('urlCodec', () => {
       expect(decodeV2(payload)).toBeNull()
     })
 
+    it('decodeV2 rejects empty tc= values (Number("") would silently coerce to 0)', () => {
+      // Codex レビュー[中] 反映: Number() 任せだと "" → 0, " " → 0 が通る
+      const fixed = '260,460,0,d,n,B,_'
+      const base = `u=${fixed},|${fixed},|${fixed},|${fixed},`
+      expect(decodeV2(`${base};tc=,`)).toBeNull()
+      expect(decodeV2(`${base};tc=,6`)).toBeNull()
+      expect(decodeV2(`${base};tc=6,`)).toBeNull()
+      expect(decodeV2(`${base};tc= , `)).toBeNull()
+    })
+
+    it('decodeV2 rejects non-canonical numeric notations (5e-1 / 0x3 / leading zero)', () => {
+      const fixed = '260,460,0,d,n,B,_'
+      const base = `u=${fixed},|${fixed},|${fixed},|${fixed},`
+      expect(decodeV2(`${base};tc=5e-1,6`)).toBeNull()
+      expect(decodeV2(`${base};tc=0x3,0`)).toBeNull()
+      expect(decodeV2(`${base};tc=06,6`)).toBeNull()
+      expect(decodeV2(`${base};tc=+6,6`)).toBeNull()
+      expect(decodeV2(`${base};tc=-1,6`)).toBeNull()
+    })
+
     it('isInitialEncoded holds for the initial state after teamRemainingCost introduction', () => {
       // tc= 省略により INITIAL の文字列が従来と完全一致し続けることを保証
       expect(isInitialEncoded(encode(INITIAL_BOARD_STATE))).toBe(true)

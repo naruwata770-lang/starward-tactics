@@ -150,6 +150,37 @@ export const TEAM_REMAINING_COST_MAX = 6
 export const TEAM_REMAINING_COST_MIN = 0
 export const TEAM_REMAINING_COST_STEP = 0.5
 
+/**
+ * チーム陣営 (味方/敵) の表示ラベル。Issue #60。
+ *
+ * UNIT_LABELS と同形式で集約することで、TeamCostBar / TeamRemainingCostEditor の
+ * 二重定義を避ける (レビュー[Claude 中] 反映: コード規約「定数集約」)。
+ */
+export const TEAM_SIDE_LABELS = {
+  ally: '味方',
+  enemy: '敵',
+} as const
+
+/**
+ * チーム残コストバー / Inspector で使う色。Issue #60。
+ *
+ * - ally は self/ally と揃えた sky-400 (LOCK_LINE_ALLY_COLOR と同色)
+ * - enemy は enemy1 と揃えた red-500 (LOCK_LINE_ENEMY_COLOR と同色)
+ *
+ * `constants/board.ts` のロック線色とは責務が異なる (board.ts = 描画寸法 / 線色、
+ * game.ts = ゲームドメイン陣営) ため別 export として置く。
+ */
+export const TEAM_COLORS = {
+  ally: '#38bdf8', // sky-400
+  enemy: '#ef4444', // red-500
+} as const
+
+/**
+ * バー / ステッパーで使う共通色 (track / label)。slate 系で他 UI と整合。
+ */
+export const TEAM_BAR_TRACK_COLOR = '#1e293b' // slate-800
+export const TEAM_BAR_TEXT_COLOR = '#e2e8f0' // slate-200
+
 export const INITIAL_BOARD_STATE: BoardState = {
   units: {
     self: makeDefaultUnit('self'),
