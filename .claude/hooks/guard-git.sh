@@ -68,7 +68,13 @@ if echo "$STRIPPED" | grep -qE 'git\s+push(\s|$)' ; then
     deny "[Hook] main への直 push は禁止されています。feature ブランチから PR 経由でマージしてください。"
   fi
   # 1b. 現在ブランチが main のケース — refspec に依らず deny
-  # CLAUDE_PROJECT_DIR が未設定でも動くよう "." にフォールバック
+  # CLAUDE.md の「main 上で直接作業しない」原則を機械強制するため、広めに deny する
+  # (refspec が他ブランチでも main 上にいる時点で「作業ブランチを切れ」と要求)
+  # 制約: CLAUDE_PROJECT_DIR のリポジトリ HEAD しか見ないため、
+  #       compound で別リポジトリに push するケース (cd /other && git push など) は
+  #       誤判定しうる。詳細は .claude/rules/hooks.md の「既知の限界」参照。
+  # detached HEAD (rebase 中など) のときは git symbolic-ref が non-zero を返すので
+  # CURRENT_BRANCH は空文字になり 1b は発火しない (意図的)。
   CURRENT_BRANCH=$(cd "${CLAUDE_PROJECT_DIR:-.}" 2>/dev/null && git symbolic-ref --short HEAD 2>/dev/null || echo "")
   if [[ "$CURRENT_BRANCH" == "main" ]]; then
     deny "[Hook] 現在ブランチが main です。main 上で直接作業せず feature ブランチを切ってから push してください。"
