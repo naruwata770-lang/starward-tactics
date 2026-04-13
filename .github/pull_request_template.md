@@ -12,7 +12,7 @@ Closes #
 
 - [ ] `npm run lint` 通過
 - [ ] `npm run typecheck` 通過
-- [ ] `npm test` 通過
+- [ ] `npm run test` 通過
 - [ ] `npm run build` 通過
 
 ビジュアル確認:

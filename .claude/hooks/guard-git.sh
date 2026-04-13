@@ -55,13 +55,23 @@ deny() {
 # 偽陽性が出るのを防ぐため、引用符内の内容を除去してからフラグ検知する。
 STRIPPED=$(echo "$COMMAND" | sed 's/"[^"]*"//g' | sed "s/'[^']*'//g")
 
-# --- 1. main への直 push 検知 ---
-# git push を含むコマンドで、refspec 部分に main が含まれるケースを広く捕捉。
-# 対象: git push origin main, git push -f origin main, git push origin HEAD:main,
-#        git push origin refs/heads/main, git push origin :main, git push upstream main 等
-if echo "$STRIPPED" | grep -qE 'git\s+push\s' ; then
+# --- 1. main への直 push 検知 (2 段階) ---
+# 1a. 明示的 refspec に main が含まれるケース
+# 1b. 現在ブランチが main の状態で push されるケース (refspec に main が出ない経路)
+#     例: git push / git push origin HEAD / git push -u origin HEAD
+#     これは 1a の正規表現では捕捉できず、以前は Hook をすり抜けていた (issue #57)
+if echo "$STRIPPED" | grep -qE 'git\s+push(\s|$)' ; then
+  # 1a. refspec に main が明示されているケース
+  # 対象: git push origin main, git push -f origin main, git push origin HEAD:main,
+  #        git push origin refs/heads/main, git push origin :main, git push upstream main 等
   if echo "$STRIPPED" | grep -qE '(^|\s)(main|HEAD:main|[^ ]*:main|[^ ]*:refs/heads/main|refs/heads/main)(\s|$)' ; then
     deny "[Hook] main への直 push は禁止されています。feature ブランチから PR 経由でマージしてください。"
+  fi
+  # 1b. 現在ブランチが main のケース — refspec に依らず deny
+  # CLAUDE_PROJECT_DIR が未設定でも動くよう "." にフォールバック
+  CURRENT_BRANCH=$(cd "${CLAUDE_PROJECT_DIR:-.}" 2>/dev/null && git symbolic-ref --short HEAD 2>/dev/null || echo "")
+  if [[ "$CURRENT_BRANCH" == "main" ]]; then
+    deny "[Hook] 現在ブランチが main です。main 上で直接作業せず feature ブランチを切ってから push してください。"
   fi
 fi
 

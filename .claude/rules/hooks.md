@@ -10,11 +10,20 @@ Bash ツールで `git *` コマンドが実行される前に発火し、以下
 
 | ルール | ブロック対象 | CLAUDE.md 対応 |
 |--------|------------|----------------|
-| main 直 push 禁止 | `git push ... main` (あらゆる refspec 形式) | 禁止事項 1 |
+| main 直 push 禁止 (明示 refspec) | `git push ... main` など refspec 形式 (`HEAD:main` / `refs/heads/main` / `:main` 等を含む) | 禁止事項 1 |
+| main 直 push 禁止 (現在ブランチ) | `git push` / `git push origin HEAD` など refspec 非明示で現在ブランチ = main のケース (issue #57 で追加) | 禁止事項 1 |
 | amend 禁止 | `git commit --amend` | 禁止事項 2 |
 | --no-verify 禁止 | `git commit --no-verify` (`-n` 含む), `git push --no-verify` | 必須コマンド節 |
 
 ブロック時は deny 理由が Claude に返され、代替手段が案内される。
+
+### 既知の限界 (guard-git.sh)
+
+正規表現ベースの擬似パースであり、以下は拾えない。サーバー側の GitHub branch protection rule と併用することが前提:
+
+- `git` alias / shell function 経由の push
+- `gh repo sync` / `hub push` など周辺 CLI 経由の更新
+- heredoc / エスケープクォート / ANSI-C quoting (`$'...'`) を含むコマンド (偽陽性・偽陰性が発生しうる)
 
 ### Stop: quality-gate.sh
 
