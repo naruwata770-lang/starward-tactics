@@ -8,6 +8,10 @@
 
 ファイル名は対象に合わせる: `boardReducer.test.ts`, `Toolbar.test.tsx` など。
 
+例外: shell hook (`.claude/hooks/`) のテストは `src/__tests__/` ではなく
+`.claude/hooks/__tests__/` に置き、bats-core で実行する。Vitest と shell の実行系が違うため
+別系統として隔離する (詳細は `.claude/rules/hooks.md`)。
+
 ## 環境の使い分け
 
 - **pure logic** (reducer, codec, history など) → node 環境

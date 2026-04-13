@@ -8,7 +8,9 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "typecheck": "tsc -b",
-    "test": "vitest run",
+    "test": "npm run test:unit && npm run test:hooks",
+    "test:unit": "vitest run",
+    "test:hooks": "bats .claude/hooks/__tests__",
     "test:watch": "vitest",
     "preview": "vite preview",
     "start": "vite preview --host 0.0.0.0 --port ${PORT:-4173}"
@@ -26,6 +28,7 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
+    "bats": "^1.13.0",
     "eslint": "^9.39.4",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.2",

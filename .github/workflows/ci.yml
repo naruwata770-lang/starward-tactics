@@ -38,8 +38,11 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Test
-        run: npm test
+      - name: Test (unit)
+        run: npm run test:unit
+
+      - name: Test (hooks / bats)
+        run: npm run test:hooks
 
       - name: Build
         run: npm run build
