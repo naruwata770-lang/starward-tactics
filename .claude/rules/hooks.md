@@ -10,11 +10,21 @@ Bash ツールで `git *` コマンドが実行される前に発火し、以下
 
 | ルール | ブロック対象 | CLAUDE.md 対応 |
 |--------|------------|----------------|
-| main 直 push 禁止 | `git push ... main` (あらゆる refspec 形式) | 禁止事項 1 |
+| main 直 push 禁止 (明示 refspec) | `git push ... main` など refspec 形式 (`HEAD:main` / `refs/heads/main` / `:main` 等を含む) | 禁止事項 1 |
+| main 上の全 push 禁止 (現在ブランチ) | 現在ブランチが main の状態で `git push` を実行すると refspec に依らず deny (`git push origin feature-x` や tag push も含む)。CLAUDE.md の「main 上で直接作業しない」原則を強制するため広めに deny している。issue #57 で追加 | 禁止事項 1 |
 | amend 禁止 | `git commit --amend` | 禁止事項 2 |
 | --no-verify 禁止 | `git commit --no-verify` (`-n` 含む), `git push --no-verify` | 必須コマンド節 |
 
 ブロック時は deny 理由が Claude に返され、代替手段が案内される。
+
+### 既知の限界 (guard-git.sh)
+
+正規表現ベースの擬似パースであり、以下は拾えない。サーバー側の GitHub branch protection rule と併用することが前提:
+
+- `git` alias / shell function 経由の push
+- `gh repo sync` / `hub push` など周辺 CLI 経由の更新
+- heredoc / エスケープクォート / ANSI-C quoting (`$'...'`) を含むコマンド (偽陽性・偽陰性が発生しうる)
+- 現在ブランチ検知 (1b) は `$CLAUDE_PROJECT_DIR` のリポジトリ HEAD を見るため、`cd /other/repo && git push` や `git -C /other/repo push` のように compound で別リポジトリへ push するケースは本プロジェクトの HEAD に基づいて誤判定しうる (tacticsboard の main を見て deny する、または検知漏れ)
 
 ### Stop: quality-gate.sh
 
