@@ -88,4 +88,45 @@ describe('characters data integrity', () => {
     const sample = CHARACTERS[0]
     expect(findCharacterByCode(sample.code)).toBe(sample)
   })
+
+  // ---- Issue #71: atwiki 実測値に置換した後の sanity check ----
+  //
+  // あえて「cost 内で maxHp が一致」「単調増加」等の assertion は入れない。
+  // 星の翼 は同 cost 内でも HP が機体別 (atwiki 体力一覧) なので、そうした
+  // assertion は Spec を仕様化して Evidence を無視する逆転を起こす。
+  // ここでは「今回の変更意図 (placeholder 排除) が守られている」「未来に桁ミス
+  // 等の jarring な regression が入ったら CI が気付く」に絞る。
+
+  it('no maxHp uses the old EXVS placeholder values (680 / 620 / 560 / 480)', () => {
+    // Issue #58 時代の暫定値。Issue #71 で個別実測値 / 新 fallback に置換済み
+    const OLD_PLACEHOLDER_VALUES = new Set([680, 620, 560, 480])
+    for (const char of CHARACTERS) {
+      expect(
+        OLD_PLACEHOLDER_VALUES.has(char.maxHp),
+        `${char.id} still uses placeholder maxHp=${char.maxHp}`,
+      ).toBe(false)
+    }
+  })
+
+  it('every maxHp is a positive integer', () => {
+    for (const char of CHARACTERS) {
+      expect(Number.isInteger(char.maxHp)).toBe(true)
+      expect(char.maxHp).toBeGreaterThan(0)
+    }
+  })
+
+  it('every maxHp is within the 星の翼 実測レンジ (1800..3100)', () => {
+    // 下限 1800 = 実測 min 1872 (snow-wall) の -3.8% 余裕。
+    // 上限 3100 = 実測 max 3020 (griffin) の +2.6% 余裕。
+    // 桁違い (68, 29000 等) や旧 EXVS placeholder (480/560/620/680) を弾くための
+    // 粗い範囲 check。cost 別 narrow 化は手入力ミス検出力は上がるが、将来の
+    // 調整パッチで壊れるリスク (Spec vs Evidence 逆転) の方が大きいので採らない。
+    for (const char of CHARACTERS) {
+      expect(
+        char.maxHp,
+        `${char.id} maxHp=${char.maxHp} is out of the expected range`,
+      ).toBeGreaterThanOrEqual(1800)
+      expect(char.maxHp).toBeLessThanOrEqual(3100)
+    }
+  })
 })

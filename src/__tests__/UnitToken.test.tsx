@@ -277,7 +277,8 @@ describe('UnitToken: HP/Boost stack (Issue #58)', () => {
         </svg>
       </BoardProvider>,
     )
-    // 「200 / 680」のような分数テキストが含まれる
+    // 「{hp} / {maxHp}」(例: ケルビム hp=200 なら「200 / 2953」) の分数テキストが含まれる。
+    // 具体値はリテラルで書かず CHARACTERS[0].maxHp に追従させる (maxHp 差し替え耐性を持たせるため)。
     const text = container.textContent ?? ''
     expect(text).toContain(`200 / ${CHARACTERS[0].maxHp}`)
   })
