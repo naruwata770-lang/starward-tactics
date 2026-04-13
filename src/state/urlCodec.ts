@@ -17,30 +17,58 @@
  *   coreType, lockTarget)。characterId は無いので decode 後は null になる。
  *
  * ============================================================
- *  v2 payload (Issue #55 で導入。encode/decode 両対応)
+ *  v2 payload (Issue #55 で導入。encode/decode 両対応。Issue #58 で hp,boost 追加)
  * ============================================================
  *
  * セクション分割型: `<key>=<value>;<key>=<value>...`
  *
  * - v2 時点で必須セクションは `u=` (units) のみ。
  *   - `u=<self>|<ally>|<enemy1>|<enemy2>` の 4 ユニット固定。
- *   - 各ユニットは固定 7 フィールド (v1 と同じ x..lockTarget) + trailing optional
- *     な 8 番目 `characterCode` (空文字で null)。
- *   - 9 番目以降のフィールドは forward compat として **ignore** する
- *     (後続 #A で `hp,boost` を末尾に追加する想定)。
+ *   - 各ユニットのフィールドは以下の **固定 7 + trailing optional 3**:
+ *     - 1..7: 固定 (x, y, direction, cost, starburst, coreType, lockTarget)
+ *     - 8: characterCode (Issue #55, 空文字 = null)
+ *     - 9: hp (Issue #58, 空文字 = null)
+ *     - 10: boost (Issue #58, 空文字 = 100 デフォルト)
+ *   - 11 番目以降のフィールドは forward compat として **ignore** する。
  * - 未知 prefix セクション (`tc=` 等) は **ignore** して残りを decode する
  *   (forward compat)。
  *
- * decode の厳格性 (Issue #55 セカンドオピニオン共通[高] 反映):
+ * encoder 正規形ルール (Issue #58 セカンドオピニオン Codex[共通・高] 反映):
+ * 「同じ意味だが文字列が違う URL」を出さないため、末尾フィールドの省略規則を
+ * 厳密に決める。
+ *
+ * | state | encoded suffix |
+ * |---|---|
+ * | hp=null && boost=100 | 省略 (8 fields) |
+ * | hp=number && boost=100 | `...,characterCode,<hp>` (9 fields) |
+ * | hp=null && boost!=100 | `...,characterCode,,<boost>` (10 fields, hp=空) |
+ * | hp=number && boost!=100 | `...,characterCode,<hp>,<boost>` (10 fields) |
+ *
+ * decode の厳格性:
  * - **strict** (1 つでも違反 → 全体 reject):
  *   - `u=` セクションが 0 個または 2 個以上 (重複・欠落)
  *   - `u=` の `|` 区切りが 4 個でない
  *   - **固定 7 フィールド** の値・型・列挙トークン・整数範囲が違反
+ *   - 9 番目 hp が「空文字でも整数でもない」(部分的に書かれた壊れた URL を弾く)
+ *   - 10 番目 boost が「空文字でも整数でもない」、または整数だが 0..100 の範囲外
+ *   - 9 番目 hp が整数だが 0..HP_DECODE_MAX の範囲外
  * - **lenient** (局所 fallback のみ):
  *   - 8 番目 characterCode が空文字 / 不在 → characterId=null
  *   - 8 番目 characterCode が辞書未収録 → characterId=null + DEV warn
- *   - 9 番目以降のフィールド → ignore
+ *   - 9 番目 hp が空文字 / 不在 → hp=null
+ *   - 10 番目 boost が空文字 / 不在 → boost=100
+ *   - 11 番目以降のフィールド → ignore
  *   - 未知セクション → ignore
+ *
+ * decode 後の正規化 (Issue #58 セカンドオピニオン Codex[共通・高] 反映):
+ * - decoder は characterId と hp の整合を取らない (疎結合)。代わりに
+ *   `normalizeBoardState` を decode の出口で必ず通し、不整合を補正する:
+ *   - characterId === null なら hp = null 強制
+ *   - characterId !== null なら hp を 0..maxHp に再 clamp
+ *   - boost を 0..100 に再 clamp + 整数化
+ * - これにより `LOAD_STATE` 経路 (App.tsx initialState / popstate) でも常に
+ *   整合した state がアプリに入る。reducer の SET_HP / SET_BOOST clamp は
+ *   UI 経由のガードであり、URL 経由の不整合からは normalize で防ぐ。
  *
  * ============================================================
  *  バージョニング戦略
@@ -61,7 +89,11 @@ import {
   UNIT_COORD_Y_MAX,
   UNIT_COORD_Y_MIN,
 } from '../constants/board'
-import { INITIAL_BOARD_STATE } from '../constants/game'
+import {
+  BOOST_MAX,
+  HP_DECODE_MAX,
+  INITIAL_BOARD_STATE,
+} from '../constants/game'
 import {
   findCharacterByCode,
   findCharacterById,
@@ -280,8 +312,11 @@ export function decodeV1Unit(fields: string[], id: UnitId): Unit | null {
   if (fields.length !== V1_UNIT_FIELD_COUNT) return null
   const fixed = decodeFixedFields(fields, id)
   if (fixed === null) return null
-  // v1 は characterId を持たないので null 固定
-  return { id, ...fixed, characterId: null }
+  // v1 は characterId / hp / boost を持たないのでデフォルト固定:
+  // - characterId: null (Issue #55)
+  // - hp: null (Issue #58, 機体未選択と整合)
+  // - boost: 100 (Issue #58, 満タン default)
+  return { id, ...fixed, characterId: null, hp: null, boost: BOOST_MAX }
 }
 
 export function decodeV1(payload: string): BoardState | null {
@@ -302,12 +337,39 @@ export function decodeV1(payload: string): BoardState | null {
 // ---- v2 encoder / decoder ----
 
 /**
- * v2 ユニットエンコード: 固定 7 フィールド + 8 番目 characterCode (空文字 = null)。
+ * v2 ユニットエンコード:
+ * - 固定 7 フィールド + 8 番目 characterCode (空文字 = null)
+ * - 9 番目 hp / 10 番目 boost は **正規形ルール** に従って省略する (Issue #58):
+ *   - hp=null && boost=100 (デフォルト) → 9, 10 を省略 (8 fields)
+ *   - hp=number && boost=100 → 9 だけ書く (9 fields)
+ *   - hp=null && boost!=100 → 9 を空文字、10 に boost (10 fields)
+ *   - hp=number && boost!=100 → 9 に hp, 10 に boost (10 fields)
+ *
+ * 「同じ意味の state が同じ encoded を返す」ことを保証 (Codex[共通・高] 反映)。
  */
 function encodeV2Unit(unit: Unit): string {
   const character = findCharacterById(unit.characterId)
   const characterCode = character?.code ?? ''
-  return `${encodeFixedFields(unit)},${characterCode}`
+  const fixedAndCharacter = `${encodeFixedFields(unit)},${characterCode}`
+
+  // hp は null と 0 を厳密に区別する (Codex/Gemini[共通・高] 反映)。
+  // truthy 判定 (`if (unit.hp)`) は 0 を null と混同するため禁止。
+  const hpStr =
+    unit.hp === null ? '' : Math.max(0, Math.min(HP_DECODE_MAX, Math.round(unit.hp))).toString()
+  const boostInt = Math.max(0, Math.min(BOOST_MAX, Math.round(unit.boost)))
+
+  // デフォルト判定: 両方デフォルト → 末尾省略
+  const isHpDefault = unit.hp === null
+  const isBoostDefault = boostInt === BOOST_MAX
+
+  if (isHpDefault && isBoostDefault) {
+    return fixedAndCharacter // 8 fields
+  }
+  if (isBoostDefault) {
+    return `${fixedAndCharacter},${hpStr}` // 9 fields (boost 省略)
+  }
+  // 10 fields (boost あり; hp=null なら hpStr は空文字)
+  return `${fixedAndCharacter},${hpStr},${boostInt}`
 }
 
 export function encodeV2(state: BoardState): string {
@@ -320,7 +382,14 @@ export function encodeV2(state: BoardState): string {
  * - fields は `,` 区切りの配列
  * - 固定 7 フィールド未満なら reject
  * - 8 番目 (characterCode) は trailing optional。空文字 / 不在 / 未知 code は characterId=null
- * - 9 番目以降は forward compat として ignore
+ * - 9 番目 (hp) は trailing optional。空文字 / 不在 → null。整数なら 0..HP_DECODE_MAX に
+ *   strict 検証、範囲外 / 非整数なら全体 reject (Issue #58)
+ * - 10 番目 (boost) は trailing optional。空文字 / 不在 → 100。整数なら 0..100 に
+ *   strict 検証、範囲外 / 非整数なら全体 reject (Issue #58)
+ * - 11 番目以降は forward compat として ignore
+ *
+ * 整合性 (characterId vs hp など) の補正は decoder ではなく `normalizeBoardState`
+ * 側で行う (関心の分離; Codex[共通・高] 反映)。
  */
 function decodeV2Unit(fields: string[], id: UnitId): Unit | null {
   if (fields.length < V2_FIXED_FIELD_COUNT) return null
@@ -341,7 +410,29 @@ function decodeV2Unit(fields: string[], id: UnitId): Unit | null {
     }
   }
 
-  return { id, ...fixed, characterId }
+  // hp は trailing optional (index 8 = 9 番目)。
+  // 空文字 / 不在 → null。それ以外は整数 strict 検証 (truthy 判定禁止)。
+  const hpRaw = fields[V2_FIXED_FIELD_COUNT + 1]
+  let hp: number | null = null
+  if (hpRaw !== undefined && hpRaw !== '') {
+    const hpNum = Number(hpRaw)
+    if (!Number.isInteger(hpNum)) return null
+    if (hpNum < 0 || hpNum > HP_DECODE_MAX) return null
+    hp = hpNum
+  }
+
+  // boost は trailing optional (index 9 = 10 番目)。
+  // 空文字 / 不在 → BOOST_MAX (100)。それ以外は整数 strict 検証。
+  const boostRaw = fields[V2_FIXED_FIELD_COUNT + 2]
+  let boost: number = BOOST_MAX
+  if (boostRaw !== undefined && boostRaw !== '') {
+    const boostNum = Number(boostRaw)
+    if (!Number.isInteger(boostNum)) return null
+    if (boostNum < 0 || boostNum > BOOST_MAX) return null
+    boost = boostNum
+  }
+
+  return { id, ...fixed, characterId, hp, boost }
 }
 
 /**
@@ -398,6 +489,77 @@ export function decodeV2(payload: string): BoardState | null {
   return { units: units as Record<UnitId, Unit> }
 }
 
+// ---- normalize ----
+
+/**
+ * decode 後の不整合を補正する関数 (Issue #58 セカンドオピニオン Codex[共通・高] 反映)。
+ *
+ * decoder は characterId / hp / boost を疎結合に検証するため、
+ * 「characterId=null だが hp=300」「hp が未知機体の maxHp を超える」のような
+ * 不整合が通り抜ける可能性がある。これを補正してアプリ層に渡す。
+ *
+ * 補正ルール:
+ * - characterId === null → hp = null 強制 (機体未選択時に HP 値が残らない)
+ * - characterId !== null:
+ *   - 機体未収録 (lookup miss) → characterId = null + hp = null (decoder 側で
+ *     既に null fallback されるが、念のため二重に押さえる)
+ *   - 機体あり: hp が null なら maxHp を割り当て (機体選択中に HP 表示なしは
+ *     UX 矛盾のため、URL 上で意図的に hp=空文字とした場合のみ起きる稀ケース)
+ *   - 機体あり: hp が number なら 0..maxHp に再 clamp
+ * - boost は 0..100 の整数に再 clamp + Math.round (decoder で strict 検証
+ *   済みだが、将来 decoder を緩めても normalize で守る)
+ *
+ * 呼び出し点: `decode` 関数の出口。LOAD_STATE 経路 (App.tsx initialState /
+ * popstate) も decode 経由なので自然にカバーされる。
+ *
+ * 参照同一性: 補正なしなら入力 state をそのまま返す (React の bailout を効かせる)。
+ */
+export function normalizeBoardState(state: BoardState): BoardState {
+  let changed = false
+  const normalizedUnits: Record<UnitId, Unit> = { ...state.units }
+  for (const id of UNIT_ORDER) {
+    const unit = state.units[id]
+    const character = findCharacterById(unit.characterId)
+    let hp = unit.hp
+    let characterId = unit.characterId
+
+    // characterId が string だが lookup miss → null に正規化 (decoder で fallback 済みのはず)
+    if (unit.characterId !== null && character === null) {
+      characterId = null
+    }
+
+    if (characterId === null) {
+      // 機体未選択時は hp 必ず null
+      if (hp !== null) hp = null
+    } else {
+      // ここで character は確実に存在 (上のガードで characterId と同期済み)
+      const charForUnit = findCharacterById(characterId)
+      if (charForUnit !== null) {
+        if (hp === null) {
+          // 機体選択中に hp=null は URL 上の不整合。maxHp に補完
+          hp = charForUnit.maxHp
+        } else {
+          const clamped = Math.max(0, Math.min(charForUnit.maxHp, Math.round(hp)))
+          if (clamped !== hp) hp = clamped
+        }
+      }
+    }
+
+    const boostInt = Math.max(0, Math.min(BOOST_MAX, Math.round(unit.boost)))
+
+    if (
+      characterId !== unit.characterId ||
+      hp !== unit.hp ||
+      boostInt !== unit.boost
+    ) {
+      normalizedUnits[id] = { ...unit, characterId, hp, boost: boostInt }
+      changed = true
+    }
+  }
+  if (!changed) return state
+  return { units: normalizedUnits }
+}
+
 // ---- top-level encode / decode ----
 
 export function encode(state: BoardState): string {
@@ -414,9 +576,16 @@ export function decode(s: string): BoardState | null {
   const payload = decodeBase64Url(b64)
   if (payload === null) return null
 
-  if (version === 'v1') return decodeV1(payload)
-  if (version === 'v2') return decodeV2(payload)
-  return null
+  let decoded: BoardState | null
+  if (version === 'v1') decoded = decodeV1(payload)
+  else if (version === 'v2') decoded = decodeV2(payload)
+  else return null
+
+  if (decoded === null) return null
+  // Issue #58: decode 出口で必ず正規化を通す。
+  // App.tsx initialState / popstate の LOAD_STATE どちらも decode 経由なので、
+  // ここで通せばアプリに不整合 state が入らない。
+  return normalizeBoardState(decoded)
 }
 
 // ---- default 判定 ----

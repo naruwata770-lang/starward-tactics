@@ -178,6 +178,57 @@ describe('boardReducer', () => {
       expect(next.units.self.cost).toBe(target.cost)
     })
 
+    it('Issue #58: sets hp to character.maxHp when characterId becomes set', () => {
+      const target = CHARACTERS[0]
+      const next = boardReducer(INITIAL_BOARD_STATE, {
+        type: 'SET_CHARACTER',
+        unitId: 'self',
+        characterId: target.id,
+      })
+      expect(next.units.self.hp).toBe(target.maxHp)
+    })
+
+    it('Issue #58: changing to a different character resets hp to new maxHp', () => {
+      // 1 機目を選択 → HP を中途半端に下げる → 2 機目に切替 → HP は 2 機目の maxHp で reset
+      const a = CHARACTERS.find((c) => c.cost === 3)!
+      const b = CHARACTERS.find((c) => c.cost === 1.5)!
+      const withA = boardReducer(INITIAL_BOARD_STATE, {
+        type: 'SET_CHARACTER',
+        unitId: 'self',
+        characterId: a.id,
+      })
+      const withADamaged = boardReducer(withA, {
+        type: 'SET_HP',
+        unitId: 'self',
+        hp: 100,
+      })
+      expect(withADamaged.units.self.hp).toBe(100)
+      const withB = boardReducer(withADamaged, {
+        type: 'SET_CHARACTER',
+        unitId: 'self',
+        characterId: b.id,
+      })
+      // 旧 hp (100) を引き継がず、b.maxHp で reset (Codex/Gemini[共通・高] 反映)
+      expect(withB.units.self.hp).toBe(b.maxHp)
+    })
+
+    it('Issue #58: clearing characterId resets hp to null', () => {
+      const target = CHARACTERS[0]
+      const withChar = boardReducer(INITIAL_BOARD_STATE, {
+        type: 'SET_CHARACTER',
+        unitId: 'self',
+        characterId: target.id,
+      })
+      expect(withChar.units.self.hp).toBe(target.maxHp)
+      const cleared = boardReducer(withChar, {
+        type: 'SET_CHARACTER',
+        unitId: 'self',
+        characterId: null,
+      })
+      // characterId=null になったら hp も null に戻る (HP 表示不能)
+      expect(cleared.units.self.hp).toBeNull()
+    })
+
     it('clearing characterId (null) keeps last cost (no rollback to default)', () => {
       // 機体選択 → 解除 → cost は機体固有値のまま (UX 罠の認識下で許容)
       const target = CHARACTERS.find((c) => c.cost === 2.5)!
@@ -282,6 +333,141 @@ describe('boardReducer', () => {
         target: 'self',
       })
       expect(next).toBe(INITIAL_BOARD_STATE)
+    })
+  })
+
+  describe('SET_HP (Issue #58)', () => {
+    function withCharacter() {
+      const target = CHARACTERS[0]
+      return {
+        target,
+        state: boardReducer(INITIAL_BOARD_STATE, {
+          type: 'SET_CHARACTER',
+          unitId: 'self',
+          characterId: target.id,
+        }),
+      }
+    }
+
+    it('updates hp when within 0..maxHp', () => {
+      const { state } = withCharacter()
+      const next = boardReducer(state, { type: 'SET_HP', unitId: 'self', hp: 200 })
+      expect(next.units.self.hp).toBe(200)
+    })
+
+    it('clamps hp above maxHp to maxHp', () => {
+      const { target, state } = withCharacter()
+      const next = boardReducer(state, {
+        type: 'SET_HP',
+        unitId: 'self',
+        hp: target.maxHp + 9999,
+      })
+      expect(next.units.self.hp).toBe(target.maxHp)
+    })
+
+    it('clamps negative hp to 0 (撃破状態)', () => {
+      const { state } = withCharacter()
+      const next = boardReducer(state, { type: 'SET_HP', unitId: 'self', hp: -100 })
+      expect(next.units.self.hp).toBe(0)
+    })
+
+    it('rounds non-integer hp to the nearest integer', () => {
+      const { state } = withCharacter()
+      const next = boardReducer(state, { type: 'SET_HP', unitId: 'self', hp: 200.7 })
+      expect(next.units.self.hp).toBe(201)
+    })
+
+    it('hp=0 (撃破) is preserved as 0, NOT confused with null', () => {
+      const { state } = withCharacter()
+      const next = boardReducer(state, { type: 'SET_HP', unitId: 'self', hp: 0 })
+      expect(next.units.self.hp).toBe(0)
+      expect(next.units.self.hp).not.toBeNull()
+    })
+
+    it('explicit hp=null clears the HP display while character is selected', () => {
+      const { state } = withCharacter()
+      const next = boardReducer(state, { type: 'SET_HP', unitId: 'self', hp: null })
+      expect(next.units.self.hp).toBeNull()
+    })
+
+    it('rejects SET_HP when characterId is null (no-op)', () => {
+      // INITIAL_BOARD_STATE の self は characterId=null
+      const next = boardReducer(INITIAL_BOARD_STATE, {
+        type: 'SET_HP',
+        unitId: 'self',
+        hp: 300,
+      })
+      expect(next).toBe(INITIAL_BOARD_STATE)
+    })
+
+    it('rejects non-finite hp (NaN, Infinity) as no-op', () => {
+      const { state } = withCharacter()
+      const naned = boardReducer(state, { type: 'SET_HP', unitId: 'self', hp: Number.NaN })
+      expect(naned).toBe(state)
+      const infed = boardReducer(state, {
+        type: 'SET_HP',
+        unitId: 'self',
+        hp: Number.POSITIVE_INFINITY,
+      })
+      expect(infed).toBe(state)
+    })
+  })
+
+  describe('SET_BOOST (Issue #58)', () => {
+    it('updates boost within 0..100', () => {
+      const next = boardReducer(INITIAL_BOARD_STATE, {
+        type: 'SET_BOOST',
+        unitId: 'self',
+        boost: 75,
+      })
+      expect(next.units.self.boost).toBe(75)
+    })
+
+    it('clamps boost above 100 to 100', () => {
+      const next = boardReducer(INITIAL_BOARD_STATE, {
+        type: 'SET_BOOST',
+        unitId: 'self',
+        boost: 250,
+      })
+      expect(next.units.self.boost).toBe(100)
+    })
+
+    it('clamps negative boost to 0', () => {
+      const next = boardReducer(INITIAL_BOARD_STATE, {
+        type: 'SET_BOOST',
+        unitId: 'self',
+        boost: -10,
+      })
+      expect(next.units.self.boost).toBe(0)
+    })
+
+    it('rounds non-integer boost', () => {
+      const next = boardReducer(INITIAL_BOARD_STATE, {
+        type: 'SET_BOOST',
+        unitId: 'self',
+        boost: 33.6,
+      })
+      expect(next.units.self.boost).toBe(34)
+    })
+
+    it('rejects non-finite boost', () => {
+      const next = boardReducer(INITIAL_BOARD_STATE, {
+        type: 'SET_BOOST',
+        unitId: 'self',
+        boost: Number.NaN,
+      })
+      expect(next).toBe(INITIAL_BOARD_STATE)
+    })
+
+    it('SET_BOOST works regardless of characterId (boost is character-independent)', () => {
+      // characterId=null でも boost は更新できる (boost は機体不問)
+      const next = boardReducer(INITIAL_BOARD_STATE, {
+        type: 'SET_BOOST',
+        unitId: 'self',
+        boost: 50,
+      })
+      expect(next.units.self.boost).toBe(50)
+      expect(next.units.self.characterId).toBeNull()
     })
   })
 

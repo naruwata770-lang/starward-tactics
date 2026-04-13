@@ -10,7 +10,7 @@ import {
   UNIT_COORD_Y_MAX,
   UNIT_COORD_Y_MIN,
 } from '../constants/board'
-import { INITIAL_BOARD_STATE } from '../constants/game'
+import { BOOST_MAX, INITIAL_BOARD_STATE } from '../constants/game'
 import { findCharacterById } from '../data/characters'
 import type { BoardAction, BoardState, Unit, UnitId } from '../types/board'
 
@@ -87,21 +87,58 @@ export function boardReducer(state: BoardState, action: BoardAction): BoardState
       return updateUnit(state, action.unitId, { lockTarget: action.target })
 
     case 'SET_CHARACTER': {
-      // characterId が string なら lookup → cost を自動同期 (1 アクション = Undo 1 単位)
-      // characterId が null なら cost は据え置き (UX 罠の認識: 機体解除後も機体固有 cost が残る。
-      // Issue #55 セカンドオピニオン Codex 中 反映: コメントで明示)
+      // characterId が string なら lookup → cost / hp を自動同期 (1 アクション = Undo 1 単位)。
       // 未知 id (lookup miss) は **no-op** で state を破壊しない (PR #63 [共通中] 反映)。
-      // 旧実装は characterId=null に書き戻していたため、既に有効な機体が
-      // 選択中だった unit が silent に解除される回帰があった。
+      //
+      // Issue #58: hp の同期挙動を追加:
+      // - characterId が string になる / 別機体に変わる → hp = character.maxHp (Codex/Gemini[共通・高] 反映)
+      // - characterId が null になる → hp = null (HP 表示不能)
+      // cost は characterId=null 時は据え置き (機体解除後も最後の cost が残る既存挙動)。
+      //
+      // 「hp 残量を引き継がない」理由: 機体ごとに maxHp が違うため、旧 hp の絶対値を残すと
+      // 「Hikari の 480 残り」のような矛盾値が出る。reset の方が予測しやすい。
       const character = findCharacterById(action.characterId)
       if (action.characterId !== null && character === null) {
         return state
       }
       const patch: Partial<Unit> =
         character !== null
-          ? { characterId: character.id, cost: character.cost }
-          : { characterId: null }
+          ? { characterId: character.id, cost: character.cost, hp: character.maxHp }
+          : { characterId: null, hp: null }
       return updateUnit(state, action.unitId, patch)
+    }
+
+    case 'SET_HP': {
+      // Issue #58: HP の編集。
+      // - characterId === null (機体未選択) なら hp は null 固定 (UI も non-interactive のはずだが
+      //   reducer でも防御。null 以外を渡されても弾く)
+      // - 機体選択中なら 0..maxHp に clamp + 整数化
+      // - 渡された hp が null かつ機体選択中 → 「HP 表示を消す」意図と解釈し許可
+      //   (将来 Inspector に「HP 非表示」ボタンを足す可能性に備える。当面は UI からは出ない)
+      const unit = state.units[action.unitId]
+      if (unit.characterId === null) {
+        // 機体未選択時は hp = null 以外受け付けない
+        if (action.hp === null) return state // すでに null なので no-op
+        return state
+      }
+      const character = findCharacterById(unit.characterId)
+      if (character === null) {
+        // 既知 characterId の lookup が miss する状況は通常起きない (data 整合 test で防止)
+        return state
+      }
+      if (action.hp === null) {
+        return updateUnit(state, action.unitId, { hp: null })
+      }
+      if (!Number.isFinite(action.hp)) return state
+      const clamped = Math.max(0, Math.min(character.maxHp, Math.round(action.hp)))
+      return updateUnit(state, action.unitId, { hp: clamped })
+    }
+
+    case 'SET_BOOST': {
+      // Issue #58: Boost の編集。0..100 に clamp + 整数化。
+      if (!Number.isFinite(action.boost)) return state
+      const clamped = Math.max(0, Math.min(BOOST_MAX, Math.round(action.boost)))
+      return updateUnit(state, action.unitId, { boost: clamped })
     }
 
     case 'LOAD_STATE':

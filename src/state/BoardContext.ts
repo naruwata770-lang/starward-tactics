@@ -39,6 +39,21 @@ export const BoardDispatchContext = createContext<Dispatch<BoardAction> | null>(
 export interface UIContextValue {
   selectedUnit: UnitId | null
   setSelectedUnit: (unit: UnitId | null) => void
+  /**
+   * Issue #58: 盤面トークンに HP/Boost を表示するか。
+   *
+   * - `true` (デフォルト): HP/Boost をトークンの下部スタックに描画する
+   * - `false`: 描画しない (#55 までの見た目に近い、シンプル表示)
+   *
+   * URL には乗せない (現セッションの UI 設定であって state ではない)。
+   * localStorage で永続化する (BoardProvider 側で実装)。
+   *
+   * トークンの縦幅 (UNIT_COORD_Y_MAX) は ON/OFF どちらでも一定で、
+   * トグル切替で既存ユニットがクランプされて移動する副作用を起こさない方針
+   * (Codex 提案[共通・中] 反映)。
+   */
+  showHpBoost: boolean
+  setShowHpBoost: (v: boolean) => void
 }
 
 export const UIContext = createContext<UIContextValue | null>(null)
@@ -83,4 +98,15 @@ export function useSelection(): UIContextValue {
   const ctx = useContext(UIContext)
   if (!ctx) throw new Error('useSelection must be used within BoardProvider')
   return ctx
+}
+
+/**
+ * Issue #58: HP/Boost 表示トグルだけを取り出すショートカット。
+ * useSelection でも取得できるが、トークン側は selectedUnit に依存させたくないので
+ * 専用 hook を切り出して購読範囲を狭める意図はない (UIContext は同一 value)。
+ * 単に意図が読み取りやすい呼び出しコードにするための糖衣。
+ */
+export function useShowHpBoost(): { showHpBoost: boolean; setShowHpBoost: (v: boolean) => void } {
+  const { showHpBoost, setShowHpBoost } = useSelection()
+  return { showHpBoost, setShowHpBoost }
 }

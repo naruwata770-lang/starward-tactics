@@ -15,11 +15,12 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { CostSelector } from '../components/inspector/CostSelector'
+import { HpBoostToggleButton } from '../components/toolbar/HpBoostToggleButton'
 import { RedoButton } from '../components/toolbar/RedoButton'
 import { ResetButton } from '../components/toolbar/ResetButton'
 import { ShareButton } from '../components/toolbar/ShareButton'
 import { UndoButton } from '../components/toolbar/UndoButton'
-import { useBoard } from '../state/BoardContext'
+import { useBoard, useShowHpBoost } from '../state/BoardContext'
 import { BoardProvider } from '../state/BoardProvider'
 
 function Probe() {
@@ -183,6 +184,142 @@ describe('Toolbar buttons', () => {
       await user.click(screen.getByRole('button', { name: '盤面をリセット' }))
       // INITIAL_BOARD_STATE では cost = 3
       expect(screen.getByTestId('self-cost').textContent).toBe('3')
+    })
+  })
+
+  describe('HpBoostToggleButton (Issue #58)', () => {
+    function ToggleProbe() {
+      const { showHpBoost } = useShowHpBoost()
+      return <span data-testid="show-hp-boost">{String(showHpBoost)}</span>
+    }
+
+    function makeStorageStub() {
+      const store = new Map<string, string>()
+      return {
+        store,
+        api: {
+          getItem: vi.fn((k: string) => store.get(k) ?? null),
+          setItem: vi.fn((k: string, v: string) => {
+            store.set(k, v)
+          }),
+          removeItem: vi.fn((k: string) => {
+            store.delete(k)
+          }),
+          clear: vi.fn(() => store.clear()),
+          key: vi.fn(),
+          length: 0,
+        },
+      }
+    }
+
+    it('default state is ON when localStorage has no saved value', () => {
+      const { api } = makeStorageStub()
+      vi.stubGlobal('localStorage', api)
+
+      render(
+        <BoardProvider>
+          <ToggleProbe />
+          <HpBoostToggleButton />
+        </BoardProvider>,
+      )
+
+      expect(screen.getByTestId('show-hp-boost').textContent).toBe('true')
+      expect(getButton('HP/Boost 表示を隠す').textContent).toContain('ON')
+    })
+
+    it('reads "0" from localStorage to start in OFF state', () => {
+      const { store, api } = makeStorageStub()
+      store.set('tacticsboard.ui.showHpBoost', '0')
+      vi.stubGlobal('localStorage', api)
+
+      render(
+        <BoardProvider>
+          <ToggleProbe />
+          <HpBoostToggleButton />
+        </BoardProvider>,
+      )
+
+      expect(screen.getByTestId('show-hp-boost').textContent).toBe('false')
+      expect(getButton('HP/Boost 表示を表示する').textContent).toContain('OFF')
+    })
+
+    it('toggling the button writes the new value to localStorage', async () => {
+      const user = userEvent.setup()
+      const { store, api } = makeStorageStub()
+      vi.stubGlobal('localStorage', api)
+
+      render(
+        <BoardProvider>
+          <ToggleProbe />
+          <HpBoostToggleButton />
+        </BoardProvider>,
+      )
+
+      // 初期 ON → クリックで OFF
+      await user.click(getButton('HP/Boost 表示を隠す'))
+      expect(screen.getByTestId('show-hp-boost').textContent).toBe('false')
+      expect(store.get('tacticsboard.ui.showHpBoost')).toBe('0')
+
+      // もう一度クリックで ON
+      await user.click(getButton('HP/Boost 表示を表示する'))
+      expect(screen.getByTestId('show-hp-boost').textContent).toBe('true')
+      expect(store.get('tacticsboard.ui.showHpBoost')).toBe('1')
+    })
+
+    it('survives localStorage.getItem throwing (defaults to ON)', () => {
+      // private mode / sandbox 等で getItem が throw するケース。
+      // BoardProvider がクラッシュせず、デフォルト (ON) で起動する。
+      const throwApi = {
+        getItem: vi.fn(() => {
+          throw new Error('storage denied')
+        }),
+        setItem: vi.fn(),
+        removeItem: vi.fn(),
+        clear: vi.fn(),
+        key: vi.fn(),
+        length: 0,
+      }
+      vi.stubGlobal('localStorage', throwApi)
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+      render(
+        <BoardProvider>
+          <ToggleProbe />
+          <HpBoostToggleButton />
+        </BoardProvider>,
+      )
+
+      expect(screen.getByTestId('show-hp-boost').textContent).toBe('true')
+      warnSpy.mockRestore()
+    })
+
+    it('survives localStorage.setItem throwing (UI continues to update)', async () => {
+      const user = userEvent.setup()
+      const throwApi = {
+        getItem: vi.fn(() => null),
+        setItem: vi.fn(() => {
+          throw new Error('quota exceeded')
+        }),
+        removeItem: vi.fn(),
+        clear: vi.fn(),
+        key: vi.fn(),
+        length: 0,
+      }
+      vi.stubGlobal('localStorage', throwApi)
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+      render(
+        <BoardProvider>
+          <ToggleProbe />
+          <HpBoostToggleButton />
+        </BoardProvider>,
+      )
+
+      // 初期 ON。クリックで OFF に切り替わるが setItem は throw する
+      await user.click(getButton('HP/Boost 表示を隠す'))
+      // UI 上は OFF になっている
+      expect(screen.getByTestId('show-hp-boost').textContent).toBe('false')
+      warnSpy.mockRestore()
     })
   })
 })

@@ -6,7 +6,7 @@
  * を満たすため、コンポーネントのみを export している。
  */
 
-import { useMemo, useReducer, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useReducer, useState, type ReactNode } from 'react'
 
 import { INITIAL_BOARD_STATE } from '../constants/game'
 import type { BoardState, UnitId } from '../types/board'
@@ -21,6 +21,49 @@ import { boardReducer } from './boardReducer'
 import { createInitialHistory, withHistory } from './withHistory'
 
 const historicalReducer = withHistory(boardReducer)
+
+/**
+ * localStorage の key 名 (Issue #58)。
+ *
+ * 設計判断: 当面は trigger 1 個しかないので **単一 key で start** する
+ * (Codex 提案[共通・中] 反映)。将来 UI 設定が 3 個以上に増えたら
+ * `tacticsboard.ui` JSON object 1 key に集約する移行案を残す。
+ *
+ * 値: `'1'` (true) / `'0'` (false)。boolean を直接 JSON 化せず文字列で持つのは、
+ * `JSON.parse` の例外ハンドリングを避けて localStorage の lenient な扱いを保つため。
+ */
+const SHOW_HP_BOOST_LS_KEY = 'tacticsboard.ui.showHpBoost'
+
+/**
+ * localStorage から showHpBoost の初期値を読む。
+ *
+ * 例外時 (SSR / Private mode / quota / iframe sandbox など) はデフォルト true を返す。
+ * try/catch で握りつぶすのは UX を壊さないため。DEV では console.warn する。
+ */
+function readShowHpBoostFromStorage(): boolean {
+  if (typeof window === 'undefined') return true
+  try {
+    const raw = window.localStorage.getItem(SHOW_HP_BOOST_LS_KEY)
+    if (raw === null) return true // 未保存
+    return raw !== '0' // '0' のみ false、それ以外 (空文字含む) は true 寄せ
+  } catch (e) {
+    if (import.meta.env.DEV) {
+      console.warn('[BoardProvider] localStorage.getItem failed:', e)
+    }
+    return true
+  }
+}
+
+function writeShowHpBoostToStorage(value: boolean): void {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(SHOW_HP_BOOST_LS_KEY, value ? '1' : '0')
+  } catch (e) {
+    if (import.meta.env.DEV) {
+      console.warn('[BoardProvider] localStorage.setItem failed:', e)
+    }
+  }
+}
 
 export interface BoardProviderProps {
   children: ReactNode
@@ -41,9 +84,17 @@ export function BoardProvider({ children, initialState }: BoardProviderProps) {
   // 必要になったら実装する想定。
   const [selectedUnit, setSelectedUnit] = useState<UnitId | null>('self')
 
+  // Issue #58: HP/Boost 表示トグル。lazy initializer で localStorage を読む。
+  const [showHpBoost, setShowHpBoost] = useState<boolean>(() => readShowHpBoostFromStorage())
+
+  // 値変更時に localStorage に書き戻す (例外は writer 側で握りつぶし)。
+  useEffect(() => {
+    writeShowHpBoostToStorage(showHpBoost)
+  }, [showHpBoost])
+
   const uiValue = useMemo<UIContextValue>(
-    () => ({ selectedUnit, setSelectedUnit }),
-    [selectedUnit],
+    () => ({ selectedUnit, setSelectedUnit, showHpBoost, setShowHpBoost }),
+    [selectedUnit, showHpBoost],
   )
 
   return (

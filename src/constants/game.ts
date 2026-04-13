@@ -77,6 +77,25 @@ export const COSTS: readonly Cost[] = [1.5, 2, 2.5, 3]
 
 export const STARBURST_LEVELS: readonly StarburstLevel[] = ['none', 'half', 'full']
 
+/**
+ * Boost の最大値 (= 100 %)。Issue #58 で導入。
+ *
+ * Boost は機体不問で常に 0..100 の範囲。reducer / urlCodec / Inspector / UnitToken で
+ * 同じ上限を共有するため定数化する。
+ */
+export const BOOST_MAX = 100
+
+/**
+ * HP の絶対値の URL 上の上限 (decoder の bound として使う)。
+ *
+ * Issue #58 で導入。実際の上限は characterId 経由で `Character.maxHp` に依存するが、
+ * decoder では characterId と hp の整合は取らず (= 疎結合)、緩めの整数 bound だけ
+ * 課す。整合は `urlCodec.normalizeBoardState` 側で取る (Codex 提案[共通・高] 反映)。
+ *
+ * 9999 は EXVS 系の機体 HP (現実値は ~700 前後) を大幅に超える余裕。
+ */
+export const HP_DECODE_MAX = 9999
+
 export const STARBURST_LABELS: Record<StarburstLevel, string> = {
   none: 'なし',
   half: '半覚',
@@ -138,6 +157,9 @@ function makeDefaultUnit(id: UnitId): Unit {
     lockTarget: null,
     // 初期は機体未選択。InspectorPanel で選ぶと cost が自動同期される (Issue #55)
     characterId: null,
+    // Issue #58: 機体未選択時は HP は表示不能 (null)。Boost は機体に依らず 100 デフォルト。
+    hp: null,
+    boost: 100,
   }
 }
 
