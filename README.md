@@ -16,6 +16,16 @@ URL ごと友達に投げて議論する、というのが基本の使い方。
 
 ![戦術ボードの盤面例](docs/screenshots/main.png)
 
+## 公開 URL
+
+| 環境 | URL | ブランチ |
+|---|---|---|
+| 本番 | <https://starward-tactics.vercel.app/> | `main` |
+| 開発統合 (preview) | Vercel が自動発行 (`starward-tactics-git-dev-<user>.vercel.app` 形式) | `dev` |
+
+旧 GitHub Pages URL (`https://naruwata770-lang.github.io/starward-tactics/`) は
+リダイレクト専用ページに縮退済みで、アクセスすると自動で本番 URL に遷移する。
+
 ## 使い方
 
 1. ブラウザで開く (公開先未設定なら `npm run dev` でローカル起動)
@@ -83,6 +93,16 @@ Phase 1 〜 10 で機能を段階的に組み上げる構成。現在の進捗 (
 個人プロジェクトなので外部 PR を能動的には募集していないものの、**実装ルール
 (コミット規約・テスト方針・コード規約・Credo 4 原則) は `CLAUDE.md` と
 `.claude/rules/` に集約されている**。手元で改造して試す場合の参考にどうぞ。
+
+貢献フロー (自分用メモでもある):
+
+1. `dev` から `feat/<issue番号>-<slug>` を切って実装 (main には直接 PR しない)
+2. PR を `dev` に向けて作成 → CI (lint / typecheck / test / build) 通過を確認
+3. レビューサイクル後にマージ。本番 (`main`) への昇格は定期的な **Release PR** (`dev` → `main`) で行う
+4. 本番障害の緊急修正だけ、例外で `fix/*` → `main` の **Hotfix PR** を許容する
+   (merge 後 24h 以内に main → dev へ sync PR を作る)
+
+詳細は `.claude/rules/git-workflow.md` を参照。
 
 ## ライセンス
 

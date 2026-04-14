@@ -3,9 +3,13 @@
 # CLAUDE.md の git 関連禁止事項を機械的に強制する。
 #
 # 検査対象:
-#   1. main への直 push (あらゆる refspec 形式)
+#   1. main / dev への直 push (あらゆる refspec 形式 + 現在ブランチ検知)
 #   2. git commit --amend
 #   3. --no-verify フラグ (-n 短縮形を含む)
+#
+# main と dev の両方を保護する理由: Issue #79 で dev = 統合ブランチ / main = 本番に
+# 役割分離した。どちらも「feature から PR 経由でしか変更が入らない」契約なので、
+# 直 push を防ぐ対象は同じ。
 #
 # なぜ node -e で JSON パースするか:
 #   jq は環境によっては未インストール。Node プロジェクトなので node は確実に存在する。
@@ -55,29 +59,31 @@ deny() {
 # 偽陽性が出るのを防ぐため、引用符内の内容を除去してからフラグ検知する。
 STRIPPED=$(echo "$COMMAND" | sed 's/"[^"]*"//g' | sed "s/'[^']*'//g")
 
-# --- 1. main への直 push 検知 (2 段階) ---
-# 1a. 明示的 refspec に main が含まれるケース
-# 1b. 現在ブランチが main の状態で push されるケース (refspec に main が出ない経路)
+# --- 1. main / dev への直 push 検知 (2 段階) ---
+# 1a. 明示的 refspec に main または dev が含まれるケース
+# 1b. 現在ブランチが main または dev の状態で push されるケース (refspec に現れない経路)
 #     例: git push / git push origin HEAD / git push -u origin HEAD
-#     これは 1a の正規表現では捕捉できず、以前は Hook をすり抜けていた (issue #57)
+#     これは 1a の正規表現では捕捉できず、issue #57 で 1b を追加、issue #79 で dev を追加
 if echo "$STRIPPED" | grep -qE 'git\s+push(\s|$)' ; then
-  # 1a. refspec に main が明示されているケース
-  # 対象: git push origin main, git push -f origin main, git push origin HEAD:main,
-  #        git push origin refs/heads/main, git push origin :main, git push upstream main 等
-  if echo "$STRIPPED" | grep -qE '(^|\s)(main|HEAD:main|[^ ]*:main|[^ ]*:refs/heads/main|refs/heads/main)(\s|$)' ; then
-    deny "[Hook] main への直 push は禁止されています。feature ブランチから PR 経由でマージしてください。"
+  # 1a. refspec に main / dev が明示されているケース
+  # 対象: git push origin main, git push -f origin dev, git push origin HEAD:main,
+  #        git push origin refs/heads/dev, git push origin :main, git push upstream dev 等
+  # 境界は (^|\s) ... (\s|$) で標準トークン扱い。dev-foo / feature-dev-x のような
+  # 単語の一部としての dev / main は matches しない (偽陽性防止)
+  if echo "$STRIPPED" | grep -qE '(^|\s)(main|HEAD:main|[^ ]*:main|[^ ]*:refs/heads/main|refs/heads/main|dev|HEAD:dev|[^ ]*:dev|[^ ]*:refs/heads/dev|refs/heads/dev)(\s|$)' ; then
+    deny "[Hook] main / dev への直 push は禁止されています。feature ブランチから PR 経由でマージしてください。"
   fi
-  # 1b. 現在ブランチが main のケース — refspec に依らず deny
-  # CLAUDE.md の「main 上で直接作業しない」原則を機械強制するため、広めに deny する
-  # (refspec が他ブランチでも main 上にいる時点で「作業ブランチを切れ」と要求)
+  # 1b. 現在ブランチが main または dev のケース — refspec に依らず deny
+  # CLAUDE.md の「main / dev 上で直接作業しない」原則を機械強制するため、広めに deny する
+  # (refspec が他ブランチでも main/dev 上にいる時点で「作業ブランチを切れ」と要求)
   # 制約: CLAUDE_PROJECT_DIR のリポジトリ HEAD しか見ないため、
   #       compound で別リポジトリに push するケース (cd /other && git push など) は
   #       誤判定しうる。詳細は .claude/rules/hooks.md の「既知の限界」参照。
   # detached HEAD (rebase 中など) のときは git symbolic-ref が non-zero を返すので
   # CURRENT_BRANCH は空文字になり 1b は発火しない (意図的)。
   CURRENT_BRANCH=$(cd "${CLAUDE_PROJECT_DIR:-.}" 2>/dev/null && git symbolic-ref --short HEAD 2>/dev/null || echo "")
-  if [[ "$CURRENT_BRANCH" == "main" ]]; then
-    deny "[Hook] 現在ブランチが main です。main 上で直接作業せず feature ブランチを切ってから push してください。"
+  if [[ "$CURRENT_BRANCH" == "main" || "$CURRENT_BRANCH" == "dev" ]]; then
+    deny "[Hook] 現在ブランチが $CURRENT_BRANCH です。main / dev 上で直接作業せず feature ブランチを切ってから push してください。"
   fi
 fi
 

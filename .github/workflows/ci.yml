@@ -2,9 +2,9 @@ name: CI
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, dev]
   push:
-    branches: [main]
+    branches: [main, dev]
 
 # 連続 push で古いジョブが走り続けないよう、同じ ref の進行中ジョブをキャンセルする
 concurrency:

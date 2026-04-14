@@ -135,6 +135,72 @@ assert_passed() {
   assert_denied
 }
 
+# --- 1a. refspec 明示 dev 検知 (issue #79 で追加) ---
+
+@test "T20 spec: git push origin dev → deny (1a dev)" {
+  invoke 'git push origin dev'
+  assert_denied
+}
+
+@test "T21 spec: git push origin HEAD:dev → deny (1a dev)" {
+  invoke 'git push origin HEAD:dev'
+  assert_denied
+}
+
+@test "T22 spec: git push origin refs/heads/dev → deny (1a dev)" {
+  invoke 'git push origin refs/heads/dev'
+  assert_denied
+}
+
+@test "T23 spec: git push origin :dev (delete) → deny (1a dev)" {
+  invoke 'git push origin :dev'
+  assert_denied
+}
+
+@test "T24 spec: git push -u upstream dev → deny (1a dev)" {
+  invoke 'git push -u upstream dev'
+  assert_denied
+}
+
+@test "T25 spec: git push origin HEAD:refs/heads/dev → deny (1a dev)" {
+  invoke 'git push origin HEAD:refs/heads/dev'
+  assert_denied
+}
+
+# --- 1b. 現在ブランチ dev 検知 (issue #79 で追加) ---
+
+@test "T26 spec: 現在ブランチ dev + push origin feature-x → deny (1b dev)" {
+  make_repo "$BATS_TEST_TMPDIR/dev-repo" dev
+  CLAUDE_PROJECT_DIR="$BATS_TEST_TMPDIR/dev-repo" invoke 'git push origin feature-x'
+  assert_denied
+}
+
+@test "T27 spec: 現在ブランチ dev + push (refspec なし) → deny (1b dev 本丸)" {
+  make_repo "$BATS_TEST_TMPDIR/dev-repo" dev
+  CLAUDE_PROJECT_DIR="$BATS_TEST_TMPDIR/dev-repo" invoke 'git push'
+  assert_denied
+}
+
+@test "T28 spec: 現在ブランチ dev + push -u origin HEAD → deny (1b dev)" {
+  make_repo "$BATS_TEST_TMPDIR/dev-repo" dev
+  CLAUDE_PROJECT_DIR="$BATS_TEST_TMPDIR/dev-repo" invoke 'git push -u origin HEAD'
+  assert_denied
+}
+
+# --- 偽陽性防止: dev / main を含む feature ブランチ名は誤 block しない ---
+
+@test "T29 spec: 現在ブランチ feat/dev-tools + push → pass (dev prefix は単語境界外)" {
+  make_repo "$BATS_TEST_TMPDIR/dev-prefix-repo" feat/dev-tools
+  CLAUDE_PROJECT_DIR="$BATS_TEST_TMPDIR/dev-prefix-repo" invoke 'git push -u origin HEAD'
+  assert_passed
+}
+
+@test "T30 spec: git push origin feat/dev-tools → pass (refspec 境界検知)" {
+  make_repo "$BATS_TEST_TMPDIR/feat-repo" feat/dev-tools
+  CLAUDE_PROJECT_DIR="$BATS_TEST_TMPDIR/feat-repo" invoke 'git push origin feat/dev-tools'
+  assert_passed
+}
+
 # --- 2. amend 検知 ---
 
 @test "T13 spec: git commit --amend → deny (2)" {
@@ -256,6 +322,12 @@ assert_passed() {
   # = quoted refspec で main 直 push が可能 = 既知の限界。
   # Claude Code の生成コマンドは通常クォートしないため実害は限定的だが、明示的に fixate しておく。
   # (ask-others Gemini T19 / Codex review #2 指摘)
-  invoke 'git push origin "main"'
+  #
+  # Issue #79 で発見: CLAUDE_PROJECT_DIR を明示しないと `.` (CI workspace) に fallback し、
+  # CI が main/dev を checkout した状態で走るときに 1b が発火して false-fail する。
+  # このテストは 1a の quote-strip 挙動を fixate するのが目的なので、1b が発火しない
+  # feature ブランチの fake repo を CLAUDE_PROJECT_DIR に与える。
+  make_repo "$BATS_TEST_TMPDIR/feature-repo" feature-x
+  CLAUDE_PROJECT_DIR="$BATS_TEST_TMPDIR/feature-repo" invoke 'git push origin "main"'
   assert_passed
 }

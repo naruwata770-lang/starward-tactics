@@ -1,4 +1,12 @@
-name: Deploy to GitHub Pages
+name: Deploy redirect page to GitHub Pages
+
+# GitHub Pages は本番ホスティングから Vercel (starward-tactics.vercel.app) に
+# 移行済み。このワークフローは旧 URL (naruwata770-lang.github.io/starward-tactics/)
+# にアクセスしたユーザーを meta refresh + canonical で Vercel に逃がすだけの
+# 静的リダイレクトページを publish する。
+#
+# 静的ホスティングでは真の 301 を返せないが、meta refresh + rel=canonical +
+# JS fallback の 3 層で SEO / UX の実害を最小化している。
 
 on:
   push:
@@ -25,17 +33,43 @@ jobs:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
-      - name: Setup Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-        with:
-          node-version-file: .nvmrc
-          cache: npm
+      - name: Build redirect page
+        run: |
+          mkdir -p dist
+          cat > dist/index.html <<'HTML'
+          <!doctype html>
+          <html lang="ja">
+            <head>
+              <meta charset="utf-8" />
+              <meta name="viewport" content="width=device-width,initial-scale=1" />
+              <title>星の翼 戦術ボードは新しい URL に移動しました</title>
+              <meta http-equiv="refresh" content="0; url=https://starward-tactics.vercel.app/" />
+              <link rel="canonical" href="https://starward-tactics.vercel.app/" />
+              <meta name="robots" content="noindex" />
+              <style>
+                body { font-family: system-ui, sans-serif; max-width: 40em; margin: 4em auto; padding: 0 1em; line-height: 1.6; }
+                a { color: #0366d6; }
+              </style>
+            </head>
+            <body>
+              <h1>新しい URL に移動しました</h1>
+              <p>
+                星の翼 戦術ボードは
+                <a href="https://starward-tactics.vercel.app/">https://starward-tactics.vercel.app/</a>
+                に移動しました。自動でジャンプしない場合はリンクをクリックしてください。
+              </p>
+              <script>
+                // meta refresh が無効化されているブラウザ向けフォールバック。
+                // location.replace を使うと履歴に旧 URL が残らず「戻る」ループを防げる
+                location.replace('https://starward-tactics.vercel.app/' + (location.search || '') + (location.hash || ''));
+              </script>
+            </body>
+          </html>
+          HTML
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build
-        run: npm run build
+      # 404 経由のディープリンクも救えるよう 404.html にも同じ内容を出す
+      - name: Duplicate as 404.html
+        run: cp dist/index.html dist/404.html
 
       - name: Configure Pages
         uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5.0.0
