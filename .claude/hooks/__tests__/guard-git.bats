@@ -322,6 +322,12 @@ assert_passed() {
   # = quoted refspec で main 直 push が可能 = 既知の限界。
   # Claude Code の生成コマンドは通常クォートしないため実害は限定的だが、明示的に fixate しておく。
   # (ask-others Gemini T19 / Codex review #2 指摘)
-  invoke 'git push origin "main"'
+  #
+  # Issue #79 で発見: CLAUDE_PROJECT_DIR を明示しないと `.` (CI workspace) に fallback し、
+  # CI が main/dev を checkout した状態で走るときに 1b が発火して false-fail する。
+  # このテストは 1a の quote-strip 挙動を fixate するのが目的なので、1b が発火しない
+  # feature ブランチの fake repo を CLAUDE_PROJECT_DIR に与える。
+  make_repo "$BATS_TEST_TMPDIR/feature-repo" feature-x
+  CLAUDE_PROJECT_DIR="$BATS_TEST_TMPDIR/feature-repo" invoke 'git push origin "main"'
   assert_passed
 }
