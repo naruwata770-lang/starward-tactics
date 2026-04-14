@@ -2,13 +2,51 @@
 
 ブランチ・PR・コミット・大きめ実装の事前計画フローをまとめる。
 
+## ブランチ構成 (dev / main 2 本運用)
+
+Issue #79 以降、**dev = 統合ブランチ / main = 本番** の 2 本運用。Vercel が両方の
+ブランチを自動デプロイしており、main は公開 URL (`starward-tactics.vercel.app`)、
+dev は Vercel が生成する preview URL に対応する。
+
+| ブランチ | 役割 | 直 push |
+|---|---|---|
+| `main` | 本番。公開 URL | **禁止** (release PR のみ) |
+| `dev` | 統合。feature マージ先 | **禁止** (feature PR のみ) |
+| `feat/<N>-<slug>` | 作業ブランチ | ここだけ push OK |
+
+main / dev 両方への直 push は `guard-git.sh` で物理的にブロックされている
+(issue #79)。`--no-verify` や amend でも迂回できないのでそのつもりで動く。
+
 ## ブランチ命名
 
 `feat/<issue番号>-<kebab名>`
 
 実例 (Phase 5 の URL 共有 + ツールバー実装): `feat/6-url-share-toolbar`
 
-main からブランチを切って作業し、PR 経由でマージする。**main への直 push は禁止** (文書修正でも PR 経由)。
+**dev からブランチを切って作業し、PR 経由で dev にマージする**。main への PR は
+後述の「Release PR」と「Hotfix PR」だけが例外。
+
+## Release PR (dev → main)
+
+dev に溜まった feature 群を本番に昇格させる PR。
+
+- タイミング: 機能群単位 or 週次で作成 (厳密な周期は定めない)
+- base: `main`, head: `dev`
+- 本文に **release note** (含まれる feature PR 番号の列挙) を書く
+- マージ方式は通常の feature PR と同じ merge commit (squash ではない)
+
+## Hotfix PR (feature → main 直行、例外)
+
+本番障害を即時に直すときだけ、feature → main の直行 PR を許容する。
+
+- タイミング: **本番障害の即時修正が必要な場合のみ**
+- base: `main`, head: `fix/<issue番号>-<slug>` (hotfix は `fix/` prefix を推奨)
+- merge 後 **24 時間以内** に `gh pr create --base dev --head main` で sync PR を作り、
+  main を dev にも取り込む (忘れると dev の feature が次の release PR で main に戻す時に
+  hotfix を巻き戻す事故が起きる)
+
+sync PR を忘れないために: hotfix 直後、GitHub の PR template などに頼らず、
+手で sync PR を立てることを前提にする。CI で強制するのは将来 Issue。
 
 ## マージ方式
 

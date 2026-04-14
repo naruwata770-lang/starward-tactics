@@ -13,7 +13,7 @@
 
 ## 禁止事項
 
-- **main への直 push 禁止** (文書修正でも PR 経由) → `.claude/rules/git-workflow.md`
+- **main / dev への直 push 禁止** (文書修正でも PR 経由。main = 本番 / dev = 統合) → `.claude/rules/git-workflow.md`
 - **既存コミットへの amend 禁止** (新コミットを積む) → `.claude/rules/git-workflow.md`
 - **`window` / `globalThis` の直接モック禁止** (`vi.stubGlobal` を使う) → `.claude/rules/testing.md`
 - **後方互換シム / 廃止コメントを残さない** (削除すべきコードは完全削除) → `.claude/rules/code-conventions.md`

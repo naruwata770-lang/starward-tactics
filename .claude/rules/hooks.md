@@ -10,8 +10,8 @@ Bash ツールで `git *` コマンドが実行される前に発火し、以下
 
 | ルール | ブロック対象 | CLAUDE.md 対応 |
 |--------|------------|----------------|
-| main 直 push 禁止 (明示 refspec) | `git push ... main` など refspec 形式 (`HEAD:main` / `refs/heads/main` / `:main` 等を含む) | 禁止事項 1 |
-| main 上の全 push 禁止 (現在ブランチ) | 現在ブランチが main の状態で `git push` を実行すると refspec に依らず deny (`git push origin feature-x` や tag push も含む)。CLAUDE.md の「main 上で直接作業しない」原則を強制するため広めに deny している。issue #57 で追加 | 禁止事項 1 |
+| main / dev 直 push 禁止 (明示 refspec) | `git push ... main` / `git push ... dev` など refspec 形式 (`HEAD:main` / `HEAD:dev` / `refs/heads/main` / `refs/heads/dev` / `:main` / `:dev` 等を含む)。dev 対応は issue #79 で追加 | 禁止事項 1 |
+| main / dev 上の全 push 禁止 (現在ブランチ) | 現在ブランチが main または dev の状態で `git push` を実行すると refspec に依らず deny (`git push origin feature-x` や tag push も含む)。CLAUDE.md の「main / dev 上で直接作業しない」原則を強制するため広めに deny している。issue #57 で main、issue #79 で dev を追加 | 禁止事項 1 |
 | amend 禁止 | `git commit --amend` | 禁止事項 2 |
 | --no-verify 禁止 | `git commit --no-verify` (`-n` 含む), `git push --no-verify` | 必須コマンド節 |
 
@@ -30,10 +30,20 @@ Bash ツールで `git *` コマンドが実行される前に発火し、以下
 - detached HEAD 中は `git symbolic-ref` が空文字を返すため 1b 検知が発火しない (意図的・K3 で fixate)
 - 引用符付き refspec `git push origin "main"` はクォート除去 sed で main が消え 1a 不発火 (K7 で fixate。Claude Code の生成コマンドは通常クォートしないため実害は限定的)
 
+### bootstrap の chicken-and-egg
+
+新 dev ブランチを GitHub 上に作る bootstrap そのものは `git push` 経由だと
+自分の hook に弾かれる (`:refs/heads/dev` refspec が 1a に matches する)。
+Issue #79 では **`gh api repos/<owner>/<repo>/git/refs`** を使って ref を直接
+作成することで guard を踏まず bootstrap した。`gh api` は `git` コマンドでは
+ないため guard の対象外。同様のケース (例: 将来 stage ブランチを足したい時) も
+この手順を踏襲する。
+
 ### テスト
 
 `.claude/hooks/__tests__/guard-git.bats` (bats-core 1.13) で黒箱ユニットテストを回している。
-仕様テスト (T1-T19) と既知の限界 fixate (K1-K6) の 2 階層構造。
+仕様テスト (T1-T30) と既知の限界 fixate (K1-K7) の 2 階層構造。
+dev 関連の仕様テストは T20-T30 (issue #79 で追加)。
 
 - ローカル: `npm run test:hooks` (`npm run test` からも呼ばれる)
 - CI: `.github/workflows/ci.yml` の `Test (hooks / bats)` step

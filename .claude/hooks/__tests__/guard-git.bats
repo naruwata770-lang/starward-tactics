@@ -135,6 +135,72 @@ assert_passed() {
   assert_denied
 }
 
+# --- 1a. refspec 明示 dev 検知 (issue #79 で追加) ---
+
+@test "T20 spec: git push origin dev → deny (1a dev)" {
+  invoke 'git push origin dev'
+  assert_denied
+}
+
+@test "T21 spec: git push origin HEAD:dev → deny (1a dev)" {
+  invoke 'git push origin HEAD:dev'
+  assert_denied
+}
+
+@test "T22 spec: git push origin refs/heads/dev → deny (1a dev)" {
+  invoke 'git push origin refs/heads/dev'
+  assert_denied
+}
+
+@test "T23 spec: git push origin :dev (delete) → deny (1a dev)" {
+  invoke 'git push origin :dev'
+  assert_denied
+}
+
+@test "T24 spec: git push -u upstream dev → deny (1a dev)" {
+  invoke 'git push -u upstream dev'
+  assert_denied
+}
+
+@test "T25 spec: git push origin HEAD:refs/heads/dev → deny (1a dev)" {
+  invoke 'git push origin HEAD:refs/heads/dev'
+  assert_denied
+}
+
+# --- 1b. 現在ブランチ dev 検知 (issue #79 で追加) ---
+
+@test "T26 spec: 現在ブランチ dev + push origin feature-x → deny (1b dev)" {
+  make_repo "$BATS_TEST_TMPDIR/dev-repo" dev
+  CLAUDE_PROJECT_DIR="$BATS_TEST_TMPDIR/dev-repo" invoke 'git push origin feature-x'
+  assert_denied
+}
+
+@test "T27 spec: 現在ブランチ dev + push (refspec なし) → deny (1b dev 本丸)" {
+  make_repo "$BATS_TEST_TMPDIR/dev-repo" dev
+  CLAUDE_PROJECT_DIR="$BATS_TEST_TMPDIR/dev-repo" invoke 'git push'
+  assert_denied
+}
+
+@test "T28 spec: 現在ブランチ dev + push -u origin HEAD → deny (1b dev)" {
+  make_repo "$BATS_TEST_TMPDIR/dev-repo" dev
+  CLAUDE_PROJECT_DIR="$BATS_TEST_TMPDIR/dev-repo" invoke 'git push -u origin HEAD'
+  assert_denied
+}
+
+# --- 偽陽性防止: dev / main を含む feature ブランチ名は誤 block しない ---
+
+@test "T29 spec: 現在ブランチ feat/dev-tools + push → pass (dev prefix は単語境界外)" {
+  make_repo "$BATS_TEST_TMPDIR/dev-prefix-repo" feat/dev-tools
+  CLAUDE_PROJECT_DIR="$BATS_TEST_TMPDIR/dev-prefix-repo" invoke 'git push -u origin HEAD'
+  assert_passed
+}
+
+@test "T30 spec: git push origin feat/dev-tools → pass (refspec 境界検知)" {
+  make_repo "$BATS_TEST_TMPDIR/feat-repo" feat/dev-tools
+  CLAUDE_PROJECT_DIR="$BATS_TEST_TMPDIR/feat-repo" invoke 'git push origin feat/dev-tools'
+  assert_passed
+}
+
 # --- 2. amend 検知 ---
 
 @test "T13 spec: git commit --amend → deny (2)" {
