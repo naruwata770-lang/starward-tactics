@@ -46,16 +46,9 @@ function App() {
     <BoardProvider initialState={initialState}>
       <UrlSyncBridge />
       <Layout
-        toolbar={
-          // Issue #60: TeamCostBar を Toolbar 直下に束ねて header 内に配置する。
-          // Layout 側の slot を増やさず呼び出し側で構成して公開 API を安定させる
-          // (セカンドオピニオン Codex[中] 反映)。
-          <div className="flex flex-col gap-2">
-            <Toolbar />
-            <TeamCostBar />
-          </div>
-        }
+        toolbar={<Toolbar />}
         board={<Board />}
+        costBar={<TeamCostBar />}
         inspector={<InspectorPanel />}
       />
     </BoardProvider>
