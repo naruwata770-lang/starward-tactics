@@ -17,6 +17,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import { useBoard } from '../../state/BoardContext'
 import { encode, isInitialEncoded } from '../../state/urlCodec'
+import { PRIMARY_STRONG_BUTTON } from './buttonVariants'
 
 const TOAST_DURATION_MS = 2000
 
@@ -69,7 +70,8 @@ export function ShareButton() {
       onClick={handleClick}
       aria-label="URLをコピー"
       aria-live="polite"
-      className="cursor-pointer rounded-md bg-slate-800 px-3 py-1.5 text-sm font-bold text-slate-200 transition hover:bg-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-400 focus-visible:outline-offset-2"
+      // min-w: ラベル切替 (🔗 共有 ↔ ✓ コピー) で primary 強調が横幅ジャンプしないよう固定
+      className={`${PRIMARY_STRONG_BUTTON} min-w-[6.5rem]`}
     >
       {copied ? '✓ コピー' : '🔗 共有'}
     </button>
