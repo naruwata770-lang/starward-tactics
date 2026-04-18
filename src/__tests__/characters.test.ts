@@ -157,10 +157,33 @@ describe('characters data integrity', () => {
     }
   })
 
-  it('normalizeSearchText trims and lowercases', () => {
+  it('normalizeSearchText trims, lowercases, and collapses whitespace', () => {
     expect(normalizeSearchText('  Reki  ')).toBe('reki')
     expect(normalizeSearchText('')).toBe('')
     expect(normalizeSearchText('SKY')).toBe('sky')
+    // 連続空白 (半角・タブ・全角空白混在) は 1 個に縮約される。
+    // haystack 側も同じ normalize を通っているので対称性を保つ (Issue #66 レビュー M2)
+    expect(normalizeSearchText('sky   saver')).toBe('sky saver')
+    expect(normalizeSearchText('sky\tsaver')).toBe('sky saver')
+    // 空白のみの入力は空文字列化 (queryLower === '' で全件表示にフォールバック)
+    expect(normalizeSearchText('   ')).toBe('')
+  })
+
+  it('normalizeSearchText is idempotent (f(f(x)) === f(x))', () => {
+    // 将来 NFKC 等を差し込んでも冪等性は保つべき契約。haystack メタテスト
+    // ('every haystack is already normalized') と対になる。
+    const samples = [
+      '  Reki  ',
+      'SKY',
+      'sky   saver',
+      '',
+      'ヒカリ',
+      '  black rock   shooter  ',
+    ]
+    for (const s of samples) {
+      const once = normalizeSearchText(s)
+      expect(normalizeSearchText(once)).toBe(once)
+    }
   })
 
   it('every maxHp is within the 星の翼 実測レンジ (1800..3100)', () => {

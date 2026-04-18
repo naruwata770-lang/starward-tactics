@@ -15,6 +15,7 @@
 import { memo, useMemo, useState } from 'react'
 
 import {
+  CHARACTERS,
   SEARCHABLE_CHARACTERS,
   normalizeSearchText,
   type Character,
@@ -52,7 +53,7 @@ const COST_DISPLAY_ORDER: readonly Cost[] = [3, 2.5, 2, 1.5]
  *
  * 挙動差分: 現行 (token 個別一致) と違い空白入り query (例: `"sky saver"`) や
  * フィールド境界をまたぐ query (例: `"レキ reki"`) もヒットする。これは
- * 「どのフィールドでもヒット」の方が直感的と判断した意図的な仕様変更 (PR #<...> 参照)。
+ * 「どのフィールドでもヒット」の方が直感的と判断した意図的な仕様変更 (Issue #66 参照)。
  */
 function matchesQuery(entry: SearchableCharacter, queryLower: string): boolean {
   if (queryLower === '') return true
@@ -102,11 +103,13 @@ export const CharacterSelector = memo(function CharacterSelector({
     [queryLower],
   )
 
-  // 検索なし時のみ cost 別 section にグルーピング
+  // 検索なし時のみ cost 別 section にグルーピング。
+  // 依存は queryLower のみ (filtered に入れると参照等価が崩れて再計算が増える。
+  // queryLower === '' のときは filtered === SEARCHABLE_CHARACTERS 全件なので
+  // 直接 CHARACTERS から groupByCost する方が意図が明確 — Issue #66 レビュー M1 反映)
   const grouped = useMemo(
-    () =>
-      queryLower === '' ? groupByCost(filtered.map((e) => e.char)) : null,
-    [queryLower, filtered],
+    () => (queryLower === '' ? groupByCost(CHARACTERS) : null),
+    [queryLower],
   )
 
   const handleSelect = (characterId: string | null) => {

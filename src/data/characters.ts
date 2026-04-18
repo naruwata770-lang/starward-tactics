@@ -166,15 +166,20 @@ export const CHARACTERS: readonly Character[] = [
 /**
  * 検索クエリ正規化。
  *
- * 現状は `trim().toLowerCase()` のみ。将来 NFKC / ひらがな↔カタカナ / 長音同一視を
- * 入れるときは、この関数の中身だけを差し替えれば haystack 側 (module top-level で
- * 1 回計算) と query 側 (keystroke ごと) が同時に更新される。
+ * - `trim()` で前後空白を除去
+ * - 連続空白 (タブ・全角/半角混在も含む `\s+`) を 1 個の半角空白に縮約
+ * - `toLowerCase()` で大文字小文字差を吸収
  *
- * module top-level で呼んでから、Issue #66 の `SEARCHABLE_CHARACTERS` 構築 1 回と
- * 検索側の queryLower 生成 1 回ずつに使う。
+ * 連続空白縮約の理由: haystack は `${name} ${shortName} ${tokens.join(' ')}` を
+ * normalize 通しで作るので、query 側も同じ正規化を当てないと「`"  "` (複数空白)
+ * で予測不能なヒットが出る / 全角空白 + 半角空白の混在で差が出る」という副作用が
+ * 発生する (Issue #66 レビュー M2 指摘)。両側で同関数を通すことで対称性を保つ。
+ *
+ * 将来 NFKC / ひらがな↔カタカナ / 長音同一視を入れるときも、この関数の中身だけを
+ * 差し替えれば haystack 側と query 側が同時に更新される。
  */
 export function normalizeSearchText(input: string): string {
-  return input.trim().toLowerCase()
+  return input.replace(/\s+/g, ' ').trim().toLowerCase()
 }
 
 /**
