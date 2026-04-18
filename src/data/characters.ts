@@ -164,6 +164,47 @@ export const CHARACTERS: readonly Character[] = [
 ] as const
 
 /**
+ * 検索クエリ正規化。
+ *
+ * 現状は `trim().toLowerCase()` のみ。将来 NFKC / ひらがな↔カタカナ / 長音同一視を
+ * 入れるときは、この関数の中身だけを差し替えれば haystack 側 (module top-level で
+ * 1 回計算) と query 側 (keystroke ごと) が同時に更新される。
+ *
+ * module top-level で呼んでから、Issue #66 の `SEARCHABLE_CHARACTERS` 構築 1 回と
+ * 検索側の queryLower 生成 1 回ずつに使う。
+ */
+export function normalizeSearchText(input: string): string {
+  return input.trim().toLowerCase()
+}
+
+/**
+ * 検索インデックス要素。検索専用の派生ビューなので `Character` 本体には
+ * `searchHaystack` フィールドを生やさず、ここで 1 本 `haystack` を持つ形に分離している
+ * (Issue #66 セカンドオピニオン Codex[高] 反映。ドメイン型と UI 都合の責務分離)。
+ */
+export interface SearchableCharacter {
+  readonly char: Character
+  /** normalizeSearchText 済み `${name} ${shortName} ${searchTokens.join(' ')}` */
+  readonly haystack: string
+}
+
+/**
+ * module top-level で 1 回だけ haystack を生成する検索ビュー。
+ *
+ * これにより CharacterSelector のキーストロークごとに全機体分 `toLowerCase` を
+ * 再計算する必要が無くなる (N × tokens 回 → 0 回)。機体数が 68 から 200+ に
+ * 増えた将来でも、keystroke 側の work は haystack 1 本の `includes` のみ。
+ */
+export const SEARCHABLE_CHARACTERS: readonly SearchableCharacter[] = CHARACTERS.map(
+  (char) => ({
+    char,
+    haystack: normalizeSearchText(
+      `${char.name} ${char.shortName} ${char.searchTokens.join(' ')}`,
+    ),
+  }),
+)
+
+/**
  * code → Character の lookup テーブル。
  * URL decode で頻繁に引くので Map ではなく Record で持つ (literal access が高速)。
  */

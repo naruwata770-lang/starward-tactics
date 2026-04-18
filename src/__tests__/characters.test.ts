@@ -20,8 +20,10 @@ import {
   CHARACTERS,
   CHARACTER_BY_CODE,
   CHARACTER_BY_ID,
+  SEARCHABLE_CHARACTERS,
   findCharacterByCode,
   findCharacterById,
+  normalizeSearchText,
 } from '../data/characters'
 
 describe('characters data integrity', () => {
@@ -113,6 +115,52 @@ describe('characters data integrity', () => {
       expect(Number.isInteger(char.maxHp)).toBe(true)
       expect(char.maxHp).toBeGreaterThan(0)
     }
+  })
+
+  // ---- Issue #66: 検索 haystack 前計算のメタテスト ----
+  //
+  // SEARCHABLE_CHARACTERS は module top-level で 1 回だけ生成する派生インデックス。
+  // - haystack が全機体 name / shortName / searchTokens を lowercase で含む
+  // - haystack 自身が lowercase (normalizeSearchText を通っている)
+  // を CI で固定し、将来 Character を足したとき searchHaystack 側の抜けを検出する。
+
+  it('SEARCHABLE_CHARACTERS covers every CHARACTERS entry in order', () => {
+    expect(SEARCHABLE_CHARACTERS.length).toBe(CHARACTERS.length)
+    for (let i = 0; i < CHARACTERS.length; i++) {
+      expect(SEARCHABLE_CHARACTERS[i].char).toBe(CHARACTERS[i])
+    }
+  })
+
+  it('every haystack is already normalized (equal to normalizeSearchText(itself))', () => {
+    for (const entry of SEARCHABLE_CHARACTERS) {
+      expect(entry.haystack).toBe(normalizeSearchText(entry.haystack))
+    }
+  })
+
+  it('every haystack contains lowercase name, shortName, and every searchToken', () => {
+    for (const entry of SEARCHABLE_CHARACTERS) {
+      const { char, haystack } = entry
+      expect(
+        haystack.includes(char.name.toLowerCase()),
+        `${char.id} haystack missing name`,
+      ).toBe(true)
+      expect(
+        haystack.includes(char.shortName.toLowerCase()),
+        `${char.id} haystack missing shortName`,
+      ).toBe(true)
+      for (const token of char.searchTokens) {
+        expect(
+          haystack.includes(token.toLowerCase()),
+          `${char.id} haystack missing token "${token}"`,
+        ).toBe(true)
+      }
+    }
+  })
+
+  it('normalizeSearchText trims and lowercases', () => {
+    expect(normalizeSearchText('  Reki  ')).toBe('reki')
+    expect(normalizeSearchText('')).toBe('')
+    expect(normalizeSearchText('SKY')).toBe('sky')
   })
 
   it('every maxHp is within the 星の翼 実測レンジ (1800..3100)', () => {

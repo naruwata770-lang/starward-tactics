@@ -14,7 +14,12 @@
 
 import { memo, useMemo, useState } from 'react'
 
-import { CHARACTERS, type Character } from '../../data/characters'
+import {
+  SEARCHABLE_CHARACTERS,
+  normalizeSearchText,
+  type Character,
+  type SearchableCharacter,
+} from '../../data/characters'
 import { useBoardDispatch } from '../../state/BoardContext'
 import type { Cost, UnitId } from '../../types/board'
 
@@ -39,15 +44,19 @@ function groupByCost(chars: readonly Character[]): Map<Cost, Character[]> {
 
 const COST_DISPLAY_ORDER: readonly Cost[] = [3, 2.5, 2, 1.5]
 
-/** 検索文字列で Character をフィルタする (name + searchTokens 部分一致、大文字小文字無視) */
-function matchesQuery(char: Character, queryLower: string): boolean {
+/**
+ * 検索文字列で SearchableCharacter をフィルタする。
+ *
+ * haystack は module top-level で normalize 済みの `${name} ${shortName} ${tokens.join(' ')}` で、
+ * keystroke ごとの `toLowerCase` 再計算コストがかからない (Issue #66)。
+ *
+ * 挙動差分: 現行 (token 個別一致) と違い空白入り query (例: `"sky saver"`) や
+ * フィールド境界をまたぐ query (例: `"レキ reki"`) もヒットする。これは
+ * 「どのフィールドでもヒット」の方が直感的と判断した意図的な仕様変更 (PR #<...> 参照)。
+ */
+function matchesQuery(entry: SearchableCharacter, queryLower: string): boolean {
   if (queryLower === '') return true
-  if (char.name.toLowerCase().includes(queryLower)) return true
-  if (char.shortName.toLowerCase().includes(queryLower)) return true
-  for (const token of char.searchTokens) {
-    if (token.toLowerCase().includes(queryLower)) return true
-  }
-  return false
+  return entry.haystack.includes(queryLower)
 }
 
 interface CharacterButtonProps {
@@ -83,17 +92,20 @@ export const CharacterSelector = memo(function CharacterSelector({
   const dispatch = useBoardDispatch()
   const [query, setQuery] = useState('')
 
-  const queryLower = query.trim().toLowerCase()
+  // 正規化関数を共通経由にすることで、将来 NFKC 等を入れたとき haystack 側も
+  // 連動する (normalizeSearchText は module top-level で haystack 構築にも使われる)。
+  const queryLower = normalizeSearchText(query)
 
-  // フィルタ後リスト
+  // フィルタ後リスト (SearchableCharacter の配列)。haystack 1 本の includes だけで判定する
   const filtered = useMemo(
-    () => CHARACTERS.filter((c) => matchesQuery(c, queryLower)),
+    () => SEARCHABLE_CHARACTERS.filter((e) => matchesQuery(e, queryLower)),
     [queryLower],
   )
 
   // 検索なし時のみ cost 別 section にグルーピング
   const grouped = useMemo(
-    () => (queryLower === '' ? groupByCost(filtered) : null),
+    () =>
+      queryLower === '' ? groupByCost(filtered.map((e) => e.char)) : null,
     [queryLower, filtered],
   )
 
@@ -161,7 +173,7 @@ export const CharacterSelector = memo(function CharacterSelector({
         ) : (
           // 検索中: フラット表示
           <div className="space-y-1">
-            {filtered.map((char) => (
+            {filtered.map(({ char }) => (
               <CharacterButton
                 key={char.id}
                 char={char}

@@ -123,6 +123,64 @@ describe('CharacterSelector', () => {
     expect(screen.getByText(/該当する機体がありません/)).toBeTruthy()
   })
 
+  // ---- Issue #66: haystack 前計算後のフィルタ挙動固定 ----
+  //
+  // 既存 (Issue #55 時点) は token ごとの個別一致だったが、haystack 1 本の
+  // `includes` に切り替えた結果の挙動差分を明示的にテストで固定する。
+
+  it('search by shortName alone matches (haystack includes shortName)', async () => {
+    const user = userEvent.setup()
+    renderSelector()
+
+    // 「name にも searchTokens にも含まれないが shortName には含まれる」文字列を
+    // データから動的に抽出する。データ変動 (Issue #88 の BRS 追加など) に強い
+    // 動的選択を採用 (CharacterSelector.test.tsx:99 の alias テストと同じ流儀)。
+    const target = CHARACTERS.find((c) => {
+      const nameLow = c.name.toLowerCase()
+      const shortLow = c.shortName.toLowerCase()
+      const tokens = c.searchTokens.map((t) => t.toLowerCase())
+      return (
+        shortLow.length > 0 &&
+        !nameLow.includes(shortLow) &&
+        !tokens.some((t) => t.includes(shortLow))
+      )
+    })
+    if (!target) return // データが揃って shortName 独自性が無くなったらスキップ
+    const input = screen.getByRole('searchbox', { name: /機体検索/ })
+    await user.type(input, target.shortName)
+    expect(
+      screen.getByRole('button', { name: new RegExp(target.name) }),
+    ).toBeTruthy()
+  })
+
+  it('space-containing query matches against the concatenated haystack', async () => {
+    // 意図的な仕様変更 (Issue #66): 現行の token 個別一致では空白入り query は
+    // 基本不ヒットだったが、haystack 1 本の includes で「単一文字列として」ヒットする。
+    // これは「どのフィールドでもヒット」の方が検索体験として素直と判断した意図的変更。
+    const user = userEvent.setup()
+    renderSelector()
+
+    // `sky-saver` は name "スカイセーバー" / tokens ["sky", "saver"]。
+    // haystack = "スカイセーバー スカイ sky saver" に対し "sky saver" がヒット。
+    const input = screen.getByRole('searchbox', { name: /機体検索/ })
+    await user.type(input, 'sky saver')
+    expect(
+      screen.getByRole('button', { name: /スカイセーバー/ }),
+    ).toBeTruthy()
+  })
+
+  it('query with symbols does not throw and falls back to empty-result UI', async () => {
+    const user = userEvent.setup()
+    renderSelector()
+
+    const input = screen.getByRole('searchbox', { name: /機体検索/ })
+    // 記号を含むクエリは haystack に含まれないので空結果になる。
+    // 例外を投げないこと + empty state に落ちることを担保する。
+    // (userEvent.type は `{` `[` を key descriptor として解釈するのでそれ以外の記号を使う)
+    await user.type(input, '@@@###!!!')
+    expect(screen.getByText(/該当する機体がありません/)).toBeTruthy()
+  })
+
   it('current character is marked aria-pressed=true', () => {
     const target = CHARACTERS[0]
     renderSelector(target.id)
