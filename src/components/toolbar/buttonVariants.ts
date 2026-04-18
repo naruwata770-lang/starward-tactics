@@ -44,6 +44,10 @@ export const PRIMARY_SOFT_BUTTON = `${BASE} px-3 font-semibold bg-violet-950/40 
 
 export const SECONDARY_BUTTON = `${BASE} px-3 font-semibold bg-slate-900/50 text-slate-300 border border-slate-700 hover:bg-slate-800 hover:border-slate-500 hover:text-slate-100 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-slate-900/50 disabled:hover:border-slate-700 disabled:hover:text-slate-300`
 
-export const TOGGLE_ON_BUTTON = `${BASE} px-3 font-semibold bg-emerald-950/40 text-emerald-200 border border-emerald-600 hover:bg-emerald-900/50`
+// disabled 系 class は現状未使用の variant にも付与しておく。variant として
+// 再利用時 (たとえば将来 Reset に loading state を入れる、別ボタンを TOGGLE_ON
+// に寄せる等) に自動で disabled 表示が揃うようにするため (Claude/Gemini [共通]
+// レビュー指摘反映)。
+export const TOGGLE_ON_BUTTON = `${BASE} px-3 font-semibold bg-emerald-950/40 text-emerald-200 border border-emerald-600 hover:bg-emerald-900/50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-emerald-950/40`
 
-export const DESTRUCTIVE_BUTTON = `${BASE} px-3 font-bold bg-rose-900 text-rose-100 hover:bg-rose-800`
+export const DESTRUCTIVE_BUTTON = `${BASE} px-3 font-bold bg-rose-900 text-rose-100 hover:bg-rose-800 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-rose-900`
