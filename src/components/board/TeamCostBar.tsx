@@ -5,7 +5,9 @@
  * を戦況情報として残すため。
  *
  * 配置:
- * - 盤面 SVG の外側 (Toolbar 直下) に独立した SVG として描画する
+ * - 盤面 SVG の外側 (Layout の main 内、board 直下) に独立した SVG として描画する。
+ *   Issue #60 では Toolbar 直下 (header 内) に置いていたが、Issue #84 で盤面との
+ *   視線距離を縮めるため main 内 board 直下に移動した (詳細は Layout.tsx の JSDoc)
  * - PNG 出力は `exportPng.ts` が盤面 SVG と合成する (canvas 合成案)。本コンポーネントに
  *   `id={TEAM_COST_BAR_SVG_ID}` を付けて querySelectable にしておく
  *

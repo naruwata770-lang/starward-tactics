@@ -26,17 +26,35 @@
  * - narrow (`flex-col`): `header → main(board+costBar) → aside(inspector) → footer`。
  *   main 内で board と costBar がブロックとして隣接する順序は desktop と同じ
  *
+ * なぜ square wrapper を廃して board+costBar を 1 つの中央寄せコンテナに束ねたか:
+ * - 計画書 (drafts/84-...-plan.md) の当初案は「main 内の square wrapper の外」に
+ *   cost bar を独立行として置く構成だった。しかし実装時、desktop で aside (Inspector)
+ *   が縦に伸びた場合に main も flex-row の stretch で縦に広がり、board だけが
+ *   square wrapper 内で中央寄せされて cost bar が遠ざかる副作用が発生した
+ * - 代わりに main の中央寄せコンテナで board と costBar を flex-col + gap-2 で
+ *   並べると、両者が常に同一ブロックとして隣接し、主目的 (視線距離最短化) が
+ *   aside の伸縮に依らず保たれる
+ *
  * 盤面+コストバーの配置 (main 内部):
- * - ラッパ (`flex flex-col items-center`) に `maxWidth: VIEW_BOX_SIZE` を与えて、
- *   board の 720 幅と水平方向に揃える
- * - board コンテナは `aspectRatio: 1/1` + `maxHeight: VIEW_BOX_SIZE` で正方形を
- *   維持する。SVG は既定の preserveAspectRatio (xMidYMid meet) でアスペクト比を保つ
- * - costBar は wrapper 直下に置き、`gap-2` で board との隙間を 0.5rem に固定する
- *   (視線距離を短く保ちつつ、ラベル間の息つぎを確保)
- * - main の縦整列は `items-start`。`items-center` にすると、aside (Inspector) が
- *   伸びて main が viewport より縦に広がったとき、board+costBar ブロックが中央に
- *   押し下げられ cost bar が viewport 外に落ちる。items-start で常に上端揃えにすれば
- *   board は header 直下に来て cost bar も自然に viewport 内に収まる
+ * - ラッパ (`flex flex-col`) に `maxWidth: VIEW_BOX_SIZE` + `h-full` を与えて、
+ *   board の 720 幅と水平方向に揃えつつ main の高さに追従する
+ * - board コンテナは `w-full flex-1 min-h-0` + `maxHeight: VIEW_BOX_SIZE`。SVG 自身が
+ *   `width=100% height=100%` + 既定の preserveAspectRatio (xMidYMid meet) を持ち、
+ *   コンテナ内でアスペクト比を保って中央描画される。height を固定せず `flex-1` で
+ *   main の残り高さに追従させることで、短い viewport (縦が低い desktop / landscape
+ *   / narrow の aside 展開時) でも盤面が main を縦にはみ出さず、costBar が確実に
+ *   main 内に残る (Codex[中] レビュー指摘反映)
+ * - costBar は wrapper 下部に `flex-none` + `w-full` で置き、board との隙間は
+ *   `gap-2` (0.5rem)。cost bar 自身の SVG が `height=72` 固定なので縮まない
+ *
+ * main の縦整列 (items-start を採る理由):
+ * - aside (Inspector) が伸びて main が viewport より縦に広がったとき、items-center
+ *   だと board+costBar ブロックが中央に押し下げられ cost bar が viewport 外に落ちる
+ * - items-start で常に上端揃えにすれば board は header 直下に来て cost bar も
+ *   自然に viewport 内に収まる
+ * - 副作用: tall viewport (Inspector が短く main が縦に余る場合) に board+costBar が
+ *   上寄せで下部に空白が出る。これは「cost bar が viewport 外に落ちる」重い副作用
+ *   より軽微 (情報損失ではなく視覚的違和感のみ) と判断して受容した
  *
  * aside の overflow:
  * - `overflow-y-auto` + `min-h-0` を指定して、縦狭 viewport で Inspector が
@@ -62,16 +80,16 @@ export function Layout({ toolbar, board, costBar, inspector }: LayoutProps) {
       <div className="flex flex-1 min-h-0 flex-col lg:flex-row">
         <main className="flex flex-1 min-h-0 items-start justify-center p-4">
           <div
-            className="flex w-full flex-col items-center gap-2"
+            className="flex w-full h-full flex-col gap-2"
             style={{ maxWidth: VIEW_BOX_SIZE }}
           >
             <div
-              className="w-full"
-              style={{ maxHeight: VIEW_BOX_SIZE, aspectRatio: '1 / 1' }}
+              className="w-full flex-1 min-h-0"
+              style={{ maxHeight: VIEW_BOX_SIZE }}
             >
               {board}
             </div>
-            <div className="w-full">{costBar}</div>
+            <div className="w-full flex-none">{costBar}</div>
           </div>
         </main>
         <aside className="w-full lg:w-80 min-h-0 overflow-y-auto border-t lg:border-t-0 lg:border-l border-slate-800 p-4">
