@@ -129,6 +129,7 @@ export const CHARACTERS: readonly Character[] = [
   { id: 'haruka', name: 'ハルカ', shortName: 'ハルカ', cost: 2.5, code: '38', searchTokens: ['haruka'], maxHp: 2650 },
   { id: 'dragoner', name: 'ドラグナー', shortName: 'ドラグ', cost: 2.5, code: '39', searchTokens: ['dragoner'], maxHp: 2500 },
   { id: 'reki', name: 'レキ', shortName: 'レキ', cost: 2.5, code: '40', searchTokens: ['reki'], maxHp: 2710 },
+  { id: 'black-rock-shooter', name: 'ブラック★ロックシューター', shortName: 'BRS', cost: 2.5, code: '68', searchTokens: ['black', 'rock', 'shooter', 'brs'], maxHp: 2588 },
 
   // ---- cost 2 (20コスト) ----
   { id: 'beta', name: 'ベータ', shortName: 'ベータ', cost: 2, code: '41', searchTokens: ['beta'], maxHp: 2340 },
