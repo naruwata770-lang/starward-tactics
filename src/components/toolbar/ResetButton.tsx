@@ -10,6 +10,7 @@
  */
 
 import { useBoardDispatch } from '../../state/BoardContext'
+import { DESTRUCTIVE_BUTTON } from './buttonVariants'
 
 export function ResetButton() {
   const dispatch = useBoardDispatch()
@@ -29,7 +30,7 @@ export function ResetButton() {
       type="button"
       onClick={handleClick}
       aria-label="盤面をリセット"
-      className="cursor-pointer rounded-md bg-rose-900 px-3 py-1.5 text-sm font-bold text-rose-100 transition hover:bg-rose-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-400 focus-visible:outline-offset-2"
+      className={DESTRUCTIVE_BUTTON}
     >
       Reset
     </button>

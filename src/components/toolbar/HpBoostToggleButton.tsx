@@ -12,6 +12,7 @@
  */
 
 import { useShowHpBoost } from '../../state/BoardContext'
+import { SECONDARY_BUTTON, TOGGLE_ON_BUTTON } from './buttonVariants'
 
 export function HpBoostToggleButton() {
   const { showHpBoost, setShowHpBoost } = useShowHpBoost()
@@ -23,11 +24,9 @@ export function HpBoostToggleButton() {
       onClick={() => setShowHpBoost(!showHpBoost)}
       aria-pressed={showHpBoost}
       aria-label={`HP/Boost 表示を${showHpBoost ? '隠す' : '表示する'}`}
-      className={`cursor-pointer rounded-md px-3 py-1.5 text-sm font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-400 focus-visible:outline-offset-2 ${
-        showHpBoost
-          ? 'bg-emerald-700 text-emerald-50 hover:bg-emerald-600'
-          : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
-      }`}
+      // ON は tinted ghost (TOGGLE_ON_BUTTON) に落とし primary の violet 塗りと
+      // 視覚的に競合しないようにしている (Issue #87 の buttonVariants.ts 参照)
+      className={showHpBoost ? TOGGLE_ON_BUTTON : SECONDARY_BUTTON}
     >
       {label}
     </button>

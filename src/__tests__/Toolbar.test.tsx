@@ -15,6 +15,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { CostSelector } from '../components/inspector/CostSelector'
+import { ExportButton } from '../components/toolbar/ExportButton'
 import { HpBoostToggleButton } from '../components/toolbar/HpBoostToggleButton'
 import { RedoButton } from '../components/toolbar/RedoButton'
 import { ResetButton } from '../components/toolbar/ResetButton'
@@ -320,6 +321,93 @@ describe('Toolbar buttons', () => {
       // UI 上は OFF になっている
       expect(screen.getByTestId('show-hp-boost').textContent).toBe('false')
       warnSpy.mockRestore()
+    })
+  })
+
+  /**
+   * 視覚階層 (Issue #87) を color token 単位で固定する。
+   *
+   * 目的: buttonVariants.ts のスタイルが意図せず書き換わったとき、CI で
+   * デグレとして検知する。class 全文一致ではなく意味トークン
+   * (`bg-violet-600` / `border-slate-700` など) で見ることで、周辺 class の
+   * 微調整には追従しつつ階層設計そのものの崩壊を拾う。
+   */
+  describe('visual hierarchy variants (Issue #87)', () => {
+    it('ShareButton uses primary-strong variant (violet solid)', () => {
+      render(
+        <BoardProvider>
+          <ShareButton />
+        </BoardProvider>,
+      )
+      const cls = getButton('URLをコピー').className
+      expect(cls).toContain('bg-violet-600')
+      expect(cls).toContain('text-white')
+    })
+
+    it('ExportButton uses primary-soft variant (violet tinted)', () => {
+      render(
+        <BoardProvider>
+          <ExportButton />
+        </BoardProvider>,
+      )
+      const cls = getButton('PNG出力').className
+      expect(cls).toContain('bg-violet-950/40')
+      expect(cls).toContain('border-violet-500/60')
+    })
+
+    it('UndoButton uses secondary variant (slate ghost + border)', () => {
+      render(
+        <BoardProvider>
+          <UndoButton />
+        </BoardProvider>,
+      )
+      const cls = getButton('元に戻す').className
+      expect(cls).toContain('bg-slate-900/50')
+      expect(cls).toContain('border-slate-700')
+    })
+
+    it('RedoButton uses secondary variant', () => {
+      render(
+        <BoardProvider>
+          <RedoButton />
+        </BoardProvider>,
+      )
+      const cls = getButton('やり直す').className
+      expect(cls).toContain('bg-slate-900/50')
+      expect(cls).toContain('border-slate-700')
+    })
+
+    it('ResetButton uses destructive variant (rose)', () => {
+      render(
+        <BoardProvider>
+          <ResetButton />
+        </BoardProvider>,
+      )
+      const cls = getButton('盤面をリセット').className
+      expect(cls).toContain('bg-rose-900')
+      expect(cls).toContain('text-rose-100')
+    })
+
+    it('HpBoostToggleButton switches variants on toggle state', async () => {
+      const user = userEvent.setup()
+      render(
+        <BoardProvider>
+          <HpBoostToggleButton />
+        </BoardProvider>,
+      )
+
+      // 初期 ON → TOGGLE_ON variant (emerald tinted ghost)
+      const onButton = getButton('HP/Boost 表示を隠す')
+      expect(onButton.className).toContain('bg-emerald-950/40')
+      expect(onButton.className).toContain('border-emerald-600')
+      // primary CTA の violet 塗りつぶしとは別系統であることを固定する
+      expect(onButton.className).not.toContain('bg-violet-600')
+
+      // クリックして OFF → SECONDARY variant
+      await user.click(onButton)
+      const offButton = getButton('HP/Boost 表示を表示する')
+      expect(offButton.className).toContain('bg-slate-900/50')
+      expect(offButton.className).toContain('border-slate-700')
     })
   })
 })

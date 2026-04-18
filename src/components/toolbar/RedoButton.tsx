@@ -10,6 +10,7 @@ import {
   useBoardDispatch,
   useHistoryAvailability,
 } from '../../state/BoardContext'
+import { SECONDARY_BUTTON } from './buttonVariants'
 
 export function RedoButton() {
   const dispatch = useBoardDispatch()
@@ -21,7 +22,7 @@ export function RedoButton() {
       onClick={() => dispatch({ type: 'REDO' })}
       disabled={!canRedo}
       aria-label="やり直す"
-      className="cursor-pointer rounded-md bg-slate-800 px-3 py-1.5 text-sm font-bold text-slate-200 transition hover:bg-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-400 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-slate-800"
+      className={SECONDARY_BUTTON}
     >
       Redo →
     </button>
