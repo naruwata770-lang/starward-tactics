@@ -56,10 +56,29 @@
  *   上寄せで下部に空白が出る。これは「cost bar が viewport 外に落ちる」重い副作用
  *   より軽微 (情報損失ではなく視覚的違和感のみ) と判断して受容した
  *
+ * outer の高さ戦略 (`min-h-svh lg:h-svh`、Issue #86):
+ * - `lg` 未満 (1 カラム: flex-col) では `min-h-svh` のまま運用し、aside が main
+ *   の下に来る narrow レイアウトで **page-level scroll** を使って Inspector 全体に
+ *   到達する。これはモバイル / タブレット縦持ちでの自然なドキュメント型 UX
+ * - `lg` 以上 (2 カラム: flex-row) では outer を `h-svh` に固定して
+ *   **aside (Inspector) だけを内部スクロール** させる。これにより短い viewport
+ *   (landscape desktop / 1440×600 など) で aside が tall でも main の board+costBar
+ *   は viewport 内に残る (Issue #84 主目的「視線距離最短化」を short viewport まで
+ *   拡張)
+ * - `lg` 境界は偶然ではなく `flex-col lg:flex-row` のレイアウト切替と 1:1 対応して
+ *   いる。2 カラム時だけ高さ拘束が必要という本来の要件と合致する
+ * - あえて root に `overflow-hidden` は載せない: content growth は `h-svh` +
+ *   内部の `flex-1 min-h-0` で既に止まる想定で、防御 overflow を足すと Board 側
+ *   SVG の `overflow="visible"` (DirectionPicker を盤面外に描く) との層が違っても
+ *   clipping 回帰リスクが残る。必要性が実測で確認された時点で初めて足す方針
+ *   (No Dead Code)
+ *
  * aside の overflow:
- * - `overflow-y-auto` + `min-h-0` を指定して、縦狭 viewport で Inspector が
- *   内部スクロールになるようにする。`min-h-0` がないと flex 子要素が親から
- *   はみ出す。
+ * - `overflow-y-auto` + `min-h-0` を指定して、2 カラム (`lg` 以上) で outer が
+ *   `h-svh` に縛られたとき Inspector が内部スクロールになるようにする。
+ *   `min-h-0` がないと flex 子要素が親からはみ出す。
+ * - 1 カラム期 (`lg` 未満) は outer が `min-h-svh` のままなので aside は content
+ *   高さまで自然に伸び、`overflow-y-auto` は発火せず page-level scroll に任せる
  */
 
 import type { ReactNode } from 'react'
@@ -75,7 +94,7 @@ export interface LayoutProps {
 
 export function Layout({ toolbar, board, costBar, inspector }: LayoutProps) {
   return (
-    <div className="flex flex-col min-h-svh bg-slate-950 text-slate-200">
+    <div className="flex flex-col min-h-svh lg:h-svh bg-slate-950 text-slate-200">
       <header className="border-b border-slate-800 px-4 py-2">{toolbar}</header>
       <div className="flex flex-1 min-h-0 flex-col lg:flex-row">
         <main className="flex flex-1 min-h-0 items-start justify-center p-4">
