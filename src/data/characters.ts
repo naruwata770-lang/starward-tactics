@@ -164,6 +164,52 @@ export const CHARACTERS: readonly Character[] = [
 ] as const
 
 /**
+ * 検索クエリ正規化。
+ *
+ * - `trim()` で前後空白を除去
+ * - 連続空白 (タブ・全角/半角混在も含む `\s+`) を 1 個の半角空白に縮約
+ * - `toLowerCase()` で大文字小文字差を吸収
+ *
+ * 連続空白縮約の理由: haystack は `${name} ${shortName} ${tokens.join(' ')}` を
+ * normalize 通しで作るので、query 側も同じ正規化を当てないと「`"  "` (複数空白)
+ * で予測不能なヒットが出る / 全角空白 + 半角空白の混在で差が出る」という副作用が
+ * 発生する (Issue #66 レビュー M2 指摘)。両側で同関数を通すことで対称性を保つ。
+ *
+ * 将来 NFKC / ひらがな↔カタカナ / 長音同一視を入れるときも、この関数の中身だけを
+ * 差し替えれば haystack 側と query 側が同時に更新される。
+ */
+export function normalizeSearchText(input: string): string {
+  return input.replace(/\s+/g, ' ').trim().toLowerCase()
+}
+
+/**
+ * 検索インデックス要素。検索専用の派生ビューなので `Character` 本体には
+ * `searchHaystack` フィールドを生やさず、ここで 1 本 `haystack` を持つ形に分離している
+ * (Issue #66 セカンドオピニオン Codex[高] 反映。ドメイン型と UI 都合の責務分離)。
+ */
+export interface SearchableCharacter {
+  readonly char: Character
+  /** normalizeSearchText 済み `${name} ${shortName} ${searchTokens.join(' ')}` */
+  readonly haystack: string
+}
+
+/**
+ * module top-level で 1 回だけ haystack を生成する検索ビュー。
+ *
+ * これにより CharacterSelector のキーストロークごとに全機体分 `toLowerCase` を
+ * 再計算する必要が無くなる (N × tokens 回 → 0 回)。機体数が 68 から 200+ に
+ * 増えた将来でも、keystroke 側の work は haystack 1 本の `includes` のみ。
+ */
+export const SEARCHABLE_CHARACTERS: readonly SearchableCharacter[] = CHARACTERS.map(
+  (char) => ({
+    char,
+    haystack: normalizeSearchText(
+      `${char.name} ${char.shortName} ${char.searchTokens.join(' ')}`,
+    ),
+  }),
+)
+
+/**
  * code → Character の lookup テーブル。
  * URL decode で頻繁に引くので Map ではなく Record で持つ (literal access が高速)。
  */
