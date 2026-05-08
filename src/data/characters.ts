@@ -44,11 +44,11 @@
  * データソース:
  *   - 体力一覧 (50 機): `https://w.atwiki.jp/starward/pages/67.html` の
  *     「体力一覧」セクション。2025-08-01 時点のスナップショット
- *   - 個別ページ (17 機): 体力一覧 未掲載機は各機体の atwiki 個別ページの
+ *   - 個別ページ (18 機): 体力一覧 未掲載機は各機体の atwiki 個別ページの
  *     ステータス欄 (例: キャミィ `pages/334.html` の「体力：3000」) から採用。
- *     2026-04-13 取得
+ *     2026-04-13 取得 (デッドマスター `pages/368.html` のみ 2026-05-09 取得)
  *
- * 結果として全 67 機すべてが atwiki 実測値。fallback 機構 (cost 別代表値) は
+ * 結果として全 68 機すべてが atwiki 実測値。fallback 機構 (cost 別代表値) は
  * dead code 化するため削除済み。将来新機体を追加する場合、`Character.maxHp`
  * は必須フィールドなので型チェックで記入漏れが必ず弾かれる。
  *
@@ -130,6 +130,7 @@ export const CHARACTERS: readonly Character[] = [
   { id: 'dragoner', name: 'ドラグナー', shortName: 'ドラグ', cost: 2.5, code: '39', searchTokens: ['dragoner'], maxHp: 2500 },
   { id: 'reki', name: 'レキ', shortName: 'レキ', cost: 2.5, code: '40', searchTokens: ['reki'], maxHp: 2710 },
   { id: 'black-rock-shooter', name: 'ブラック★ロックシューター', shortName: 'BRS', cost: 2.5, code: '68', searchTokens: ['black', 'rock', 'shooter', 'brs'], maxHp: 2588 },
+  { id: 'dead-master', name: 'デッドマスター', shortName: 'DM', cost: 2.5, code: '69', searchTokens: ['dead', 'master', 'dm'], maxHp: 2500 },
 
   // ---- cost 2 (20コスト) ----
   { id: 'beta', name: 'ベータ', shortName: 'ベータ', cost: 2, code: '41', searchTokens: ['beta'], maxHp: 2340 },
